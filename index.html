@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>나의 뱃지 도감</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Noto+Serif+KR:wght@500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+  :root{
+    --gold:#D9B26C; --gold-light:#F4E3B2;
+    --violet:#8D7FE0; --parchment:#F6EFDD;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    font-family:'Noto Sans KR', sans-serif;
+    background:#0E1128;
+    color:#F5F3EC;
+    min-height:100vh;
+    overflow-x:hidden;
+  }
+  #app{ position:relative; min-height:100vh; }
+
+  /* 별 배경 */
+  .stars{
+    position:absolute; inset:0;
+    background-image:
+      radial-gradient(1.5px 1.5px at 20% 30%, #F5EFDD 40%, transparent 100%),
+      radial-gradient(1.5px 1.5px at 70% 20%, #F5EFDD 40%, transparent 100%),
+      radial-gradient(1px 1px at 40% 70%, #C9BFF7 40%, transparent 100%),
+      radial-gradient(1.5px 1.5px at 85% 65%, #F5EFDD 40%, transparent 100%),
+      radial-gradient(1px 1px at 10% 85%, #D9B26C 40%, transparent 100%),
+      radial-gradient(1.5px 1.5px at 55% 45%, #F5EFDD 40%, transparent 100%),
+      radial-gradient(1px 1px at 90% 90%, #C9BFF7 40%, transparent 100%),
+      radial-gradient(1.5px 1.5px at 30% 10%, #F5EFDD 40%, transparent 100%);
+    background-repeat:repeat; background-size:400px 400px;
+    animation:twinkle 5s ease-in-out infinite alternate;
+    opacity:.9; pointer-events:none;
+  }
+  .stars.dim{ opacity:.45; }
+  @keyframes twinkle{ from{opacity:.5;} to{opacity:1;} }
+
+  /* 로그인 화면 */
+  .login-screen{
+    position:relative; min-height:100vh; display:flex;
+    align-items:center; justify-content:center;
+    background:radial-gradient(ellipse at 50% 20%, #1B2150 0%, #0E1128 65%);
+    padding:24px;
+  }
+  .login-card{
+    position:relative; z-index:1; width:100%; max-width:380px;
+    background:linear-gradient(180deg, var(--parchment), #EFE4C8);
+    color:#262035; border-radius:18px; padding:40px 32px 32px; text-align:center;
+    box-shadow:0 30px 60px rgba(0,0,0,.45), 0 0 0 1px rgba(217,178,108,.35);
+  }
+  .login-eyebrow{ font-size:11px; letter-spacing:.22em; font-weight:700; color:#A98A45; margin:0 0 10px; }
+  .login-title{ font-family:'Noto Serif KR', serif; font-size:26px; font-weight:700; margin:0 0 10px; }
+  .login-desc{ font-size:13px; color:#5B5470; margin:0 0 26px; line-height:1.6; }
+  .login-form{ display:flex; flex-direction:column; gap:10px; }
+  .login-input{
+    font-family:'Noto Sans KR', sans-serif; padding:13px 16px; border-radius:10px;
+    border:1.5px solid #D8CBA5; background:#FFFDF6; font-size:14px; outline:none;
+    transition:border-color .15s ease;
+  }
+  .login-input:focus{ border-color:#A98A45; }
+  .login-btn{
+    font-family:'Noto Sans KR', sans-serif; padding:13px 16px; border-radius:10px; border:none;
+    background:#262035; color:var(--parchment); font-weight:700; font-size:14px; cursor:pointer;
+    transition:transform .15s ease, background .15s ease;
+  }
+  .login-btn:hover{ background:#3A3155; transform:translateY(-1px); }
+  .login-error{ margin:14px 0 0; font-size:12.5px; color:#B44444; font-weight:500; min-height:16px; }
+  .login-note{ margin:20px 0 0; font-size:11px; color:#9C916E; }
+
+  /* 컬렉션 화면 */
+  .collection-screen{ position:relative; min-height:100vh; padding:40px 6vw 80px; display:none; }
+  .collection-header{
+    position:relative; z-index:1; display:flex; align-items:flex-end; justify-content:space-between;
+    flex-wrap:wrap; gap:16px; margin-bottom:44px; border-bottom:1px solid rgba(217,178,108,.25); padding-bottom:20px;
+  }
+  .collection-eyebrow{ font-size:12px; letter-spacing:.14em; color:var(--gold); font-weight:500; margin:0 0 6px; }
+  .collection-title{ font-family:'Noto Serif KR', serif; font-size:30px; margin:0; }
+  .back-link{
+    background:transparent; border:1px solid rgba(245,243,236,.3); color:#F5F3EC;
+    font-family:'Noto Sans KR', sans-serif; font-size:12.5px; padding:9px 16px; border-radius:999px; cursor:pointer;
+    transition:background .15s ease, border-color .15s ease;
+  }
+  .back-link:hover{ background:rgba(245,243,236,.08); border-color:rgba(245,243,236,.55); }
+  .collection-body{ position:relative; z-index:1; }
+
+  .empty-state{ text-align:center; padding:90px 20px; color:#C9C3DA; }
+  .empty-mark{ font-size:30px; color:var(--gold); margin-bottom:14px; }
+  .empty-text{ font-size:16px; font-weight:500; margin:0 0 8px; color:#F5F3EC; }
+  .empty-sub{ font-size:13px; color:#928DAE; margin:0; }
+
+  .badge-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(140px,1fr)); gap:28px; max-width:900px; }
+  .badge-cell{ position:relative; display:flex; flex-direction:column; align-items:center; cursor:pointer; animation:floatIn .6s ease both; }
+  @keyframes floatIn{ from{opacity:0; transform:translateY(10px);} to{opacity:1; transform:translateY(0);} }
+  .badge-medal{
+    position:relative; width:108px; height:108px;
+    clip-path:polygon(50% 0%, 95% 25%, 95% 75%, 50% 100%, 5% 75%, 5% 25%);
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:0 10px 24px rgba(0,0,0,.4), inset 0 0 0 2px rgba(255,255,255,.18);
+    overflow:hidden; transition:transform .2s ease;
+  }
+  .badge-cell:hover .badge-medal{ transform:translateY(-4px) scale(1.04); }
+  .badge-img{ width:70%; height:70%; object-fit:contain; }
+  .badge-fallback{ font-size:28px; font-weight:700; color:rgba(255,255,255,.85); }
+  .badge-shine{
+    position:absolute; top:-50%; left:-60%; width:40%; height:200%;
+    background:linear-gradient(120deg, transparent, rgba(255,255,255,.75), transparent);
+    transform:rotate(20deg); animation:sparkle 3.4s ease-in-out infinite;
+  }
+  @keyframes sparkle{
+    0%{ left:-60%; opacity:0; } 8%{ opacity:.9; } 22%{ left:130%; opacity:0; } 100%{ left:130%; opacity:0; }
+  }
+
+  .tooltip{
+    position:absolute; bottom:122px; left:50%; transform:translateX(-50%);
+    background:#0B0E1F; color:#FFFFFF; padding:10px 14px; border-radius:10px;
+    min-width:160px; max-width:220px; text-align:center; z-index:5;
+    box-shadow:0 12px 24px rgba(0,0,0,.4); pointer-events:none; display:none;
+  }
+  .tooltip-main{ font-weight:700; font-size:13.5px; margin:0 0 4px; }
+  .tooltip-sub{ font-weight:300; font-size:11.5px; line-height:1.5; margin:0; color:#D8D8E4; }
+  .tooltip-tail{
+    position:absolute; bottom:-6px; left:50%; transform:translateX(-50%) rotate(45deg);
+    width:12px; height:12px; background:#0B0E1F;
+  }
+
+  /* 3D 뷰어 오버레이 */
+  .viewer-overlay{
+    position:fixed; inset:0; z-index:50; background:rgba(6,8,20,.78);
+    backdrop-filter:blur(6px); display:none; align-items:center; justify-content:center;
+    animation:fadeIn .2s ease;
+  }
+  @keyframes fadeIn{ from{opacity:0;} to{opacity:1;} }
+  .close-btn{
+    position:absolute; top:24px; left:24px; width:42px; height:42px; border-radius:50%;
+    border:1px solid rgba(245,243,236,.35); background:rgba(255,255,255,.06); color:#F5F3EC;
+    font-size:17px; cursor:pointer; display:flex; align-items:center; justify-content:center;
+    transition:background .15s ease, transform .15s ease;
+  }
+  .close-btn:hover{ background:rgba(255,255,255,.16); transform:scale(1.06); }
+  .viewer-panel{
+    width:min(420px, 88vw); background:linear-gradient(180deg, #191F3D, #12162E); border-radius:20px;
+    padding:24px; box-shadow:0 30px 80px rgba(0,0,0,.55), 0 0 0 1px rgba(217,178,108,.2); text-align:center;
+  }
+  .viewer-canvas{ width:100%; height:min(320px, 60vw); touch-action:none; cursor:grab; }
+  .viewer-canvas:active{ cursor:grabbing; }
+  .viewer-caption{ margin-top:12px; }
+  .viewer-name{ font-weight:700; font-size:16px; margin:0 0 6px; color:#F5F3EC; }
+  .viewer-desc{ font-weight:300; font-size:12.5px; color:#C9C3DA; margin:0 0 10px; line-height:1.5; }
+  .viewer-hint{ font-size:11px; color:#8D86A8; margin:0; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- 로그인 화면 -->
+  <div class="login-screen" id="loginScreen">
+    <div class="stars"></div>
+    <div class="login-card">
+      <p class="login-eyebrow">STUDY BADGE LOG</p>
+      <h1 class="login-title">나의 뱃지 도감</h1>
+      <p class="login-desc">이름을 입력하면 그동안 모은 뱃지를 볼 수 있어요.</p>
+      <form class="login-form" id="loginForm">
+        <input type="text" class="login-input" id="nameInput" placeholder="이름을 입력하세요" />
+        <button type="submit" class="login-btn">도감 열기</button>
+      </form>
+      <p class="login-error" id="loginError"></p>
+      <p class="login-note">테스트용 등록 이름: 김민준 · 이서연 · 박도윤</p>
+    </div>
+  </div>
+
+  <!-- 컬렉션 화면 -->
+  <div class="collection-screen" id="collectionScreen">
+    <div class="stars dim"></div>
+    <header class="collection-header">
+      <div>
+        <p class="collection-eyebrow" id="userLabel"></p>
+        <h1 class="collection-title">뱃지 컬렉션</h1>
+      </div>
+      <button class="back-link" id="backBtn">다른 이름으로 보기</button>
+    </header>
+    <main class="collection-body">
+      <div class="empty-state" id="emptyState" style="display:none;">
+        <div class="empty-mark">✦</div>
+        <p class="empty-text">아직 아무런 뱃지도 모으지 못했어요.</p>
+        <p class="empty-sub">스터디에 참여하면 새로운 뱃지가 도감에 나타나요.</p>
+      </div>
+      <div class="badge-grid" id="badgeGrid"></div>
+    </main>
+  </div>
+
+  <!-- 3D 뷰어 오버레이 -->
+  <div class="viewer-overlay" id="viewerOverlay">
+    <button class="close-btn" id="closeViewerBtn" aria-label="닫기">✕</button>
+    <div class="viewer-panel">
+      <div class="viewer-canvas" id="viewerCanvas"></div>
+      <div class="viewer-caption">
+        <p class="viewer-name" id="viewerName"></p>
+        <p class="viewer-desc" id="viewerDesc"></p>
+        <p class="viewer-hint">드래그해서 360˚로 돌려보세요</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* ----------------------------------------------------------------
+   등록된 이름과 뱃지 데이터
+   실제 서비스에서는 이 부분을 원하는 이름·뱃지로 편집하면 됩니다.
+   각 뱃지 필드:
+     name / desc  : 말풍선에 표시될 이름과 설명
+     colors       : [메인색, 보조색]
+     shape        : 3D 자리표시자 모양 (cylinder/torus/icosahedron/octahedron)
+     image        : 실제 2D 썸네일 이미지 URL (없으면 도형 자리표시자)
+     modelUrl     : 실제 .glb 3D 모델 URL (없으면 도형 자리표시자, 현재 버전은
+                    자리표시자만 지원 — 실제 파일 연동 시 별도 로더 추가 필요)
+------------------------------------------------------------------- */
+const REGISTERED_USERS = {
+  "김민준": [
+    { id:"b1", name:"새벽 5시의 전사", desc:"새벽 스터디에 5회 이상 출석했어요", colors:["#D9B26C","#F4E3B2"], shape:"cylinder", image:null, modelUrl:null },
+    { id:"b2", name:"완벽 출석", desc:"한 학기 동안 결석 없이 참여했어요", colors:["#8D7FE0","#C9BFF7"], shape:"icosahedron", image:null, modelUrl:null },
+    { id:"b3", name:"질문왕", desc:"스터디 중 가장 많은 질문을 던졌어요", colors:["#5FB5A6","#BFE9DE"], shape:"octahedron", image:null, modelUrl:null }
+  ],
+  "이서연": [],
+  "박도윤": [
+    { id:"b4", name:"마감 헌터", desc:"과제를 단 한 번도 늦지 않고 제출했어요", colors:["#E08585","#F6C3C3"], shape:"torus", image:null, modelUrl:null }
+  ]
+};
+
+const SHAPE_LABEL = { cylinder:"메", icosahedron:"보", octahedron:"각", torus:"고" };
+
+/* ---------------- 화면 전환 ---------------- */
+const loginScreen = document.getElementById('loginScreen');
+const collectionScreen = document.getElementById('collectionScreen');
+const loginForm = document.getElementById('loginForm');
+const nameInput = document.getElementById('nameInput');
+const loginError = document.getElementById('loginError');
+const userLabel = document.getElementById('userLabel');
+const badgeGrid = document.getElementById('badgeGrid');
+const emptyState = document.getElementById('emptyState');
+const backBtn = document.getElementById('backBtn');
+
+function showCollection(name){
+  const badges = REGISTERED_USERS[name] || [];
+  userLabel.textContent = name + '님의 도감';
+  badgeGrid.innerHTML = '';
+  if(badges.length === 0){
+    emptyState.style.display = 'block';
+    badgeGrid.style.display = 'none';
+  }else{
+    emptyState.style.display = 'none';
+    badgeGrid.style.display = 'grid';
+    badges.forEach((b, i) => badgeGrid.appendChild(renderBadgeCell(b, i)));
+  }
+  loginScreen.style.display = 'none';
+  collectionScreen.style.display = 'block';
+}
+
+function showLogin(){
+  collectionScreen.style.display = 'none';
+  loginScreen.style.display = 'flex';
+  nameInput.value = '';
+  loginError.textContent = '';
+  nameInput.focus();
+}
+
+loginForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const trimmed = nameInput.value.trim();
+  if(!trimmed){
+    loginError.textContent = '이름을 입력해 주세요.';
+    return;
+  }
+  if(!(trimmed in REGISTERED_USERS)){
+    loginError.textContent = '등록되지 않은 이름이에요. 스터디장에게 등록을 요청해 주세요.';
+    return;
+  }
+  loginError.textContent = '';
+  showCollection(trimmed);
+});
+
+backBtn.addEventListener('click', showLogin);
+
+/* ---------------- 뱃지 셀 렌더링 ---------------- */
+function renderBadgeCell(badge, index){
+  const cell = document.createElement('div');
+  cell.className = 'badge-cell';
+  cell.style.animationDelay = ((index % 6) * 0.35) + 's';
+
+  const medal = document.createElement('div');
+  medal.className = 'badge-medal';
+  medal.style.background = `linear-gradient(155deg, ${badge.colors[0]}, ${badge.colors[1]})`;
+
+  if(badge.image){
+    const img = document.createElement('img');
+    img.src = badge.image; img.alt = badge.name; img.className = 'badge-img';
+    medal.appendChild(img);
+  }else{
+    const span = document.createElement('span');
+    span.className = 'badge-fallback';
+    span.textContent = SHAPE_LABEL[badge.shape] || '★';
+    medal.appendChild(span);
+  }
+  const shine = document.createElement('span');
+  shine.className = 'badge-shine';
+  medal.appendChild(shine);
+  cell.appendChild(medal);
+
+  const tooltip = document.createElement('div');
+  tooltip.className = 'tooltip';
+  tooltip.innerHTML = `
+    <p class="tooltip-main">${escapeHtml(badge.name)}</p>
+    <p class="tooltip-sub">${escapeHtml(badge.desc)}</p>
+    <span class="tooltip-tail"></span>
+  `;
+  cell.appendChild(tooltip);
+
+  cell.addEventListener('mouseenter', () => { tooltip.style.display = 'block'; });
+  cell.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
+  cell.addEventListener('click', () => openViewer(badge));
+
+  return cell;
+}
+
+function escapeHtml(str){
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+/* ---------------- 3D 뷰어 ---------------- */
+const viewerOverlay = document.getElementById('viewerOverlay');
+const viewerCanvasHost = document.getElementById('viewerCanvas');
+const viewerName = document.getElementById('viewerName');
+const viewerDesc = document.getElementById('viewerDesc');
+const closeViewerBtn = document.getElementById('closeViewerBtn');
+
+let threeCleanup = null;
+
+function openViewer(badge){
+  viewerName.textContent = badge.name;
+  viewerDesc.textContent = badge.desc;
+  viewerOverlay.style.display = 'flex';
+  mountThree(badge);
+}
+
+function closeViewer(){
+  viewerOverlay.style.display = 'none';
+  if(threeCleanup){ threeCleanup(); threeCleanup = null; }
+  viewerCanvasHost.innerHTML = '';
+}
+closeViewerBtn.addEventListener('click', closeViewer);
+viewerOverlay.addEventListener('click', (e) => { if(e.target === viewerOverlay) closeViewer(); });
+document.addEventListener('keydown', (e) => { if(e.key === 'Escape' && viewerOverlay.style.display === 'flex') closeViewer(); });
+
+function mountThree(badge){
+  const mount = viewerCanvasHost;
+  const width = mount.clientWidth || 320;
+  const height = mount.clientHeight || 320;
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(40, width/height, 0.1, 100);
+  camera.position.set(0,0,4.2);
+
+  const renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true });
+  renderer.setSize(width, height);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  mount.appendChild(renderer.domElement);
+
+  scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+  const key = new THREE.DirectionalLight(0xffffff, 0.9);
+  key.position.set(2,3,4); scene.add(key);
+  const glowLight = new THREE.PointLight(badge.colors[0], 1.4, 10);
+  glowLight.position.set(-2,1,2); scene.add(glowLight);
+
+  let geometry;
+  switch(badge.shape){
+    case 'torus': geometry = new THREE.TorusGeometry(0.85, 0.32, 24, 80); break;
+    case 'icosahedron': geometry = new THREE.IcosahedronGeometry(1.05, 0); break;
+    case 'octahedron': geometry = new THREE.OctahedronGeometry(1.1, 0); break;
+    default: geometry = new THREE.CylinderGeometry(1,1,0.28,48);
+  }
+  const material = new THREE.MeshStandardMaterial({
+    color: badge.colors[0], metalness:0.75, roughness:0.22,
+    emissive: new THREE.Color(badge.colors[0]), emissiveIntensity:0.12
+  });
+  const mesh = new THREE.Mesh(geometry, material);
+  scene.add(mesh);
+
+  let rim = null;
+  if(badge.shape === 'cylinder'){
+    const rimGeo = new THREE.TorusGeometry(1.02, 0.05, 16, 64);
+    const rimMat = new THREE.MeshStandardMaterial({ color: badge.colors[1], metalness:0.8, roughness:0.15 });
+    rim = new THREE.Mesh(rimGeo, rimMat);
+    rim.rotation.x = Math.PI/2;
+    scene.add(rim);
+  }
+
+  const state = { dragging:false, lastX:0, lastY:0, rotX:0.35, rotY:0.6 };
+  let raf;
+
+  function render(){
+    if(!state.dragging){ state.rotY += 0.004; }
+    mesh.rotation.y = state.rotY;
+    mesh.rotation.x = state.rotX;
+    if(rim){ rim.rotation.y = state.rotY; rim.rotation.z = state.rotX; }
+    renderer.render(scene, camera);
+    raf = requestAnimationFrame(render);
+  }
+  render();
+
+  const el = renderer.domElement;
+  function onDown(e){ state.dragging = true; state.lastX = e.clientX; state.lastY = e.clientY; }
+  function onMove(e){
+    if(!state.dragging) return;
+    const dx = e.clientX - state.lastX, dy = e.clientY - state.lastY;
+    state.rotY += dx * 0.01;
+    state.rotX += dy * 0.01;
+    state.rotX = Math.max(-1.1, Math.min(1.1, state.rotX));
+    state.lastX = e.clientX; state.lastY = e.clientY;
+  }
+  function onUp(){ state.dragging = false; }
+
+  el.addEventListener('pointerdown', onDown);
+  window.addEventListener('pointermove', onMove);
+  window.addEventListener('pointerup', onUp);
+
+  function onResize(){
+    const w = mount.clientWidth, h = mount.clientHeight;
+    renderer.setSize(w,h);
+    camera.aspect = w/h;
+    camera.updateProjectionMatrix();
+  }
+  window.addEventListener('resize', onResize);
+
+  threeCleanup = () => {
+    cancelAnimationFrame(raf);
+    el.removeEventListener('pointerdown', onDown);
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', onUp);
+    window.removeEventListener('resize', onResize);
+    geometry.dispose();
+    material.dispose();
+    renderer.dispose();
+  };
+}
+
+/* 시작 화면 */
+showLogin();
+</script>
+</body>
+</html>
