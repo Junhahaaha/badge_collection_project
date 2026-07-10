@@ -397,7 +397,7 @@ function mountThree(badge){
   const height = mount.clientHeight || 320;
 
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(40, width/height, 0.1, 100);
+  const camera = new THREE.PerspectiveCamera(0, width/height, 0.1, 100);
   camera.position.set(0,0,4.0);
 
   const renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true });
