@@ -168,33 +168,16 @@
     position:relative;
     width:min(420px, 88vw); background:linear-gradient(180deg, #191F3D, #12162E); border-radius:20px;
     padding:24px; box-shadow:0 30px 80px rgba(0,0,0,.55), 0 0 0 1px rgba(217,178,108,.2); text-align:center;
-    animation:panelAppear .95s cubic-bezier(.25,.46,.45,.94) both;
+    animation:panelAppear .3s ease-out backwards;
   }
-  /* 0~35%는 패널이 나타나는 구간, 60~85%는 뱃지가 착지하는 순간에 맞춰
-     배경이 살짝 눌렸다 펴지며 받아내는 듯한 반응을 보여줍니다. */
   @keyframes panelAppear{
     0%{ opacity:0; transform:scale(.92); }
-    35%{ opacity:1; transform:scale(1); }
-    60%{ transform:scale(1); }
-    69%{ transform:scale(1.02, 0.96); }
-    80%{ transform:scale(0.99, 1.008); }
-    100%{ transform:scale(1); }
+    100%{ opacity:1; transform:scale(1); }
   }
-  .viewer-canvas{
-    width:100%; height:min(320px, 60vw); touch-action:none; cursor:grab;
-    transform-origin:bottom center;
-    animation:badgeDropIn .6s ease .28s both;
-  }
-  /* 낙하 후 바닥에 포옥 눌렸다가(scaleY 축소) 통통 튕기며 안정되는 궤적 */
-  @keyframes badgeDropIn{
-    0%{ transform:translateY(-190%) scale(1,1); opacity:0; }
-    48%{ transform:translateY(3%) scale(1,1); opacity:1; }
-    55%{ transform:translateY(7%) scale(1.12,0.84); }
-    66%{ transform:translateY(-4%) scale(0.95,1.08); }
-    78%{ transform:translateY(2%) scale(1.03,0.97); }
-    90%{ transform:translateY(-1%) scale(0.99,1.01); }
-    100%{ transform:translateY(0) scale(1,1); opacity:1; }
-  }
+  /* 낙하/착지 바운스와 배경이 받아내는 반응은 CSS 키프레임이 아니라
+     mountThree()의 스프링 물리 시뮬레이션(JS, requestAnimationFrame)이 매 프레임 직접 계산합니다.
+     두 요소가 같은 타임라인에서 갱신되므로 타이밍이 항상 정확히 맞습니다. */
+  .viewer-canvas{ width:100%; height:min(320px, 60vw); touch-action:none; cursor:grab; }
   .viewer-canvas:active{ cursor:grabbing; }
   .viewer-caption{ margin-top:12px; }
   .viewer-name{ font-weight:700; font-size:16px; margin:0 0 6px; color:#F5F3EC; }
@@ -261,6 +244,8 @@
         sparkleMap1  : 스와이프 반짝임 적용 영역 마스크(흰색=적용/검정=비적용) URL 1
         sparkleMap2  : 스와이프 반짝임 적용 영역 마스크(흰색=적용/검정=비적용) URL 2
         modelUrl     : 실제 .glb 3D 모델 URL (없으면 도형 자리표시자)
+        sound        : 3D 뷰어에서 뱃지를 클릭했을 때 재생할 효과음 URL (없으면 무음).
+                       UI에는 노출되지 않는, 뱃지 정보에만 기록해두는 내부 데이터입니다.
 
    2) REGISTERED_USERS : 유저 이름 -> 보유한 뱃지 id 배열.
       뱃지 내용을 바꾸고 싶으면 BADGE_CATALOG만 수정하면 되고,
@@ -275,7 +260,8 @@ const BADGE_CATALOG = {
     image:"assets/images/001-starter.png",
     sparkleMap1:"assets/sparkle-maps/001-starter-sparkle-1.png",
     sparkleMap2:"assets/sparkle-maps/001-starter-sparkle-2.png",
-    modelUrl:"assets/models/001-starter.glb"
+    modelUrl:"assets/models/001-starter.glb",
+    sound:null
   }
 };
 
@@ -422,6 +408,15 @@ function launchViewer(cell, badge){
   cell.addEventListener('animationend', () => openViewer(badge), { once:true });
 }
 
+function playBadgeSound(url){
+  try{
+    const audio = new Audio(url);
+    audio.play().catch(() => {});
+  }catch(err){
+    console.error('뱃지 효과음 재생 실패', err);
+  }
+}
+
 function openViewer(badge){
   viewerName.textContent = badge.name;
   viewerDesc.textContent = badge.desc;
@@ -531,7 +526,56 @@ function mountThree(badge){
   const MOMENTUM_DAMPING = 0.94;
   const MOMENTUM_STOP_THRESHOLD = 0.0003;
 
-  function render(){
+  /* ---- 낙하 + 착지 스프링 물리 ----
+     뱃지 캔버스(mount)와 배경 패널(panelEl)을 CSS 키프레임 대신 같은 rAF 루프 안에서
+     매 프레임 함께 계산해서, 착지하는 정확한 순간에 배경이 반응하도록 동기화합니다. */
+  const panelEl = mount.closest('.viewer-panel');
+  const DROP_START_Y = -300;
+  const DROP_DELAY = 0.28; // 배경 패널이 먼저 자리를 잡은 뒤 뱃지가 떨어지기 시작
+  const drop = { y:DROP_START_Y, vel:0, elapsed:0, started:false };
+  const panelSquash = { v:0, vel:0, triggered:false };
+  let lastFrameTime = null;
+
+  mount.style.opacity = '0';
+  mount.style.transformOrigin = 'bottom center';
+  mount.style.transform = `translateY(${DROP_START_Y}px)`;
+  if(panelEl) panelEl.style.transform = '';
+
+  function stepSpring(s, dt, k, c){
+    const accel = -k * s.v - c * s.vel;
+    s.vel += accel * dt;
+    s.v += s.vel * dt;
+  }
+
+  function updateDropPhysics(dt){
+    // 낙하 위치 스프링 (뱃지가 떨어지다 바닥에서 통통 튕기며 안정됨)
+    const k = 170, c = 12;
+    const accel = -k * drop.y - c * drop.vel;
+    drop.vel += accel * dt;
+    const prevY = drop.y;
+    drop.y += drop.vel * dt;
+
+    // 처음으로 바닥(y=0)을 지나는 순간 = 착지. 배경에 "받아내는" 반응 스프링을 걸어줍니다.
+    if(!panelSquash.triggered && prevY < 0 && drop.y >= 0){
+      panelSquash.triggered = true;
+      panelSquash.vel += 6.5;
+    }
+    stepSpring(panelSquash, dt, 480, 18);
+
+    // 속도에서 직접 유도한 스쿼시&스트레치: 빠르게 움직일수록 진행 방향으로 길쭉해집니다.
+    const stretch = Math.max(0, Math.min(0.32, Math.abs(drop.vel) * 0.00042));
+    const scaleY = (1 + stretch).toFixed(3);
+    const scaleX = (1 - stretch * 0.6).toFixed(3);
+    mount.style.opacity = '1';
+    mount.style.transform = `translateY(${drop.y.toFixed(2)}px) scale(${scaleX}, ${scaleY})`;
+
+    if(panelEl){
+      const pDelta = Math.max(-0.05, Math.min(0.05, panelSquash.v * 0.014));
+      panelEl.style.transform = `scale(${(1 + pDelta).toFixed(3)}, ${(1 - pDelta).toFixed(3)})`;
+    }
+  }
+
+  function render(now){
     if(!state.dragging && (Math.abs(state.velX) > MOMENTUM_STOP_THRESHOLD || Math.abs(state.velY) > MOMENTUM_STOP_THRESHOLD)){
       state.rotY += state.velY;
       state.rotX += state.velX;
@@ -541,15 +585,42 @@ function mountThree(badge){
     }
     pivot.rotation.y = state.rotY;
     pivot.rotation.x = state.rotX;
+
+    if(lastFrameTime === null) lastFrameTime = now;
+    const frameDt = Math.min(0.032, (now - lastFrameTime) / 1000);
+    lastFrameTime = now;
+    drop.elapsed += frameDt;
+    if(drop.elapsed >= DROP_DELAY){
+      updateDropPhysics(drop.started ? frameDt : 0);
+      drop.started = true;
+    }
+
     renderer.render(scene, camera);
     raf = requestAnimationFrame(render);
   }
-  render();
+  render(performance.now());
+
+  // 뱃지를 클릭(드래그 아님)했을 때만 효과음을 재생하기 위한 레이캐스팅
+  const raycaster = new THREE.Raycaster();
+  let clickStart = null;
+
+  function tryPlayBadgeSound(e){
+    if(!badge.sound) return;
+    const rect = el.getBoundingClientRect();
+    const ndc = new THREE.Vector2(
+      ((e.clientX - rect.left) / rect.width) * 2 - 1,
+      -((e.clientY - rect.top) / rect.height) * 2 + 1
+    );
+    raycaster.setFromCamera(ndc, camera);
+    const hits = raycaster.intersectObject(pivot, true);
+    if(hits.length > 0) playBadgeSound(badge.sound);
+  }
 
   const el = renderer.domElement;
   function onDown(e){
     state.dragging = true; state.lastX = e.clientX; state.lastY = e.clientY;
     state.velX = 0; state.velY = 0;
+    clickStart = { x:e.clientX, y:e.clientY, time:performance.now() };
   }
   function onMove(e){
     if(!state.dragging) return;
@@ -562,7 +633,15 @@ function mountThree(badge){
     state.velX = deltaX;
     state.lastX = e.clientX; state.lastY = e.clientY;
   }
-  function onUp(){ state.dragging = false; }
+  function onUp(e){
+    state.dragging = false;
+    if(clickStart){
+      const dist = Math.hypot(e.clientX - clickStart.x, e.clientY - clickStart.y);
+      const heldFor = performance.now() - clickStart.time;
+      if(dist < 6 && heldFor < 500) tryPlayBadgeSound(e);
+      clickStart = null;
+    }
+  }
 
   el.addEventListener('pointerdown', onDown);
   window.addEventListener('pointermove', onMove);
