@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Noto+Serif+KR:wght@500;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 <style>
   :root{
     --gold:#D9B26C; --gold-light:#F4E3B2;
@@ -100,21 +101,31 @@
   @keyframes floatIn{ from{opacity:0; transform:translateY(10px);} to{opacity:1; transform:translateY(0);} }
   .badge-medal{
     position:relative; width:108px; height:108px;
-    clip-path:polygon(50% 0%, 95% 25%, 95% 75%, 50% 100%, 5% 75%, 5% 25%);
     display:flex; align-items:center; justify-content:center;
+    transition:transform .2s ease;
+  }
+  .badge-medal.placeholder{
+    border-radius:50%;
     box-shadow:0 10px 24px rgba(0,0,0,.4), inset 0 0 0 2px rgba(255,255,255,.18);
-    overflow:hidden; transition:transform .2s ease;
   }
   .badge-cell:hover .badge-medal{ transform:translateY(-4px) scale(1.04); }
-  .badge-img{ width:70%; height:70%; object-fit:contain; }
+  .badge-img{ width:100%; height:100%; object-fit:contain; filter:drop-shadow(0 8px 16px rgba(0,0,0,.4)); }
   .badge-fallback{ font-size:28px; font-weight:700; color:rgba(255,255,255,.85); }
-  .badge-shine{
-    position:absolute; top:-50%; left:-60%; width:40%; height:200%;
-    background:linear-gradient(120deg, transparent, rgba(255,255,255,.75), transparent);
-    transform:rotate(20deg); animation:sparkle 3.4s ease-in-out infinite;
+  /* sparkleMap: 흰색(반짝임)/검정(비반짝임) 마스크 이미지.
+     mix-blend-mode:screen 이 검정을 무시하고 흰 영역만 빛나게 더해줍니다. */
+  .badge-sparkle{
+    position:absolute; inset:0; width:100%; height:100%; object-fit:contain;
+    pointer-events:none; opacity:0; mix-blend-mode:screen;
   }
-  @keyframes sparkle{
-    0%{ left:-60%; opacity:0; } 8%{ opacity:.9; } 22%{ left:130%; opacity:0; } 100%{ left:130%; opacity:0; }
+  .badge-sparkle.s1{ animation:badgeSparkle 3.9s ease-in-out infinite; }
+  .badge-sparkle.s2{ animation:badgeSparkle 3.14s ease-in-out infinite; animation-delay:1.57s; }
+  @keyframes badgeSparkle{
+    0%{ opacity:0; }
+    12.5%{ opacity:.55; }
+    25%{ opacity:.95; }
+    37.5%{ opacity:.55; }
+    50%{ opacity:0; }
+    100%{ opacity:0; }
   }
 
   .tooltip{
@@ -212,27 +223,48 @@
 
 <script>
 /* ----------------------------------------------------------------
-   등록된 이름과 뱃지 데이터
-   실제 서비스에서는 이 부분을 원하는 이름·뱃지로 편집하면 됩니다.
-   각 뱃지 필드:
-     name / desc  : 말풍선에 표시될 이름과 설명
-     colors       : [메인색, 보조색]
-     shape        : 3D 자리표시자 모양 (cylinder/torus/icosahedron/octahedron)
-     image        : 실제 2D 썸네일 이미지 URL (없으면 도형 자리표시자)
-     modelUrl     : 실제 .glb 3D 모델 URL (없으면 도형 자리표시자, 현재 버전은
-                    자리표시자만 지원 — 실제 파일 연동 시 별도 로더 추가 필요)
+   뱃지 카탈로그 + 유저별 보유 목록
+   실제 서비스에서는 이 부분을 원하는 뱃지·이름으로 편집하면 됩니다.
+
+   1) BADGE_CATALOG : 뱃지 하나의 "정의"를 id별로 한 번만 기입합니다.
+        name / desc  : 말풍선에 표시될 이름과 설명
+        colors       : [메인색, 보조색]
+        shape        : 3D 자리표시자 모양 (cylinder/torus/icosahedron/octahedron),
+                       modelUrl이 없거나 로드에 실패했을 때 사용됩니다.
+        image        : 실제 2D 썸네일 이미지 URL (없으면 도형 자리표시자)
+        sparkleMap1  : 반짝임 효과용 스파클맵 이미지 URL 1
+        sparkleMap2  : 반짝임 효과용 스파클맵 이미지 URL 2
+        modelUrl     : 실제 .glb 3D 모델 URL (없으면 도형 자리표시자)
+
+   2) REGISTERED_USERS : 유저 이름 -> 보유한 뱃지 id 배열.
+      뱃지 내용을 바꾸고 싶으면 BADGE_CATALOG만 수정하면 되고,
+      유저에게 뱃지를 주고 싶으면 여기에 id만 추가하면 됩니다.
 ------------------------------------------------------------------- */
-const REGISTERED_USERS = {
-  "김민준": [
-    { id:"b1", name:"새벽 5시의 전사", desc:"새벽 스터디에 5회 이상 출석했어요", colors:["#D9B26C","#F4E3B2"], shape:"cylinder", image:null, modelUrl:null },
-    { id:"b2", name:"완벽 출석", desc:"한 학기 동안 결석 없이 참여했어요", colors:["#8D7FE0","#C9BFF7"], shape:"icosahedron", image:null, modelUrl:null },
-    { id:"b3", name:"질문왕", desc:"스터디 중 가장 많은 질문을 던졌어요", colors:["#5FB5A6","#BFE9DE"], shape:"octahedron", image:null, modelUrl:null }
-  ],
-  "이서연": [],
-  "박도윤": [
-    { id:"b4", name:"마감 헌터", desc:"과제를 단 한 번도 늦지 않고 제출했어요", colors:["#E08585","#F6C3C3"], shape:"torus", image:null, modelUrl:null }
-  ]
+const BADGE_CATALOG = {
+  b5: {
+    name:"시작이 반!",
+    desc:"스터디를 시작한 당신! 앞으로 디자인 고수가 될 날만 남았다!",
+    colors:["#D9B26C","#F4E3B2"],
+    shape:"cylinder",
+    image:"assets/images/001-starter.png",
+    sparkleMap1:"assets/sparkle-maps/001-starter-sparkle-1.png",
+    sparkleMap2:"assets/sparkle-maps/001-starter-sparkle-2.png",
+    modelUrl:"assets/models/001-starter.glb"
+  }
 };
+
+const REGISTERED_USERS = {
+  "김민준": ["b5"],
+  "이서연": [],
+  "박도윤": []
+};
+
+function getUserBadges(name){
+  const ids = REGISTERED_USERS[name] || [];
+  return ids
+    .map(id => BADGE_CATALOG[id] ? Object.assign({ id }, BADGE_CATALOG[id]) : null)
+    .filter(Boolean);
+}
 
 const SHAPE_LABEL = { cylinder:"메", icosahedron:"보", octahedron:"각", torus:"고" };
 
@@ -248,7 +280,7 @@ const emptyState = document.getElementById('emptyState');
 const backBtn = document.getElementById('backBtn');
 
 function showCollection(name){
-  const badges = REGISTERED_USERS[name] || [];
+  const badges = getUserBadges(name);
   userLabel.textContent = name + '님의 도감';
   badgeGrid.innerHTML = '';
   if(badges.length === 0){
@@ -295,22 +327,28 @@ function renderBadgeCell(badge, index){
   cell.style.animationDelay = ((index % 6) * 0.35) + 's';
 
   const medal = document.createElement('div');
-  medal.className = 'badge-medal';
-  medal.style.background = `linear-gradient(155deg, ${badge.colors[0]}, ${badge.colors[1]})`;
 
   if(badge.image){
+    medal.className = 'badge-medal';
     const img = document.createElement('img');
     img.src = badge.image; img.alt = badge.name; img.className = 'badge-img';
     medal.appendChild(img);
+
+    [badge.sparkleMap1, badge.sparkleMap2].forEach((url, i) => {
+      if(!url) return;
+      const sparkle = document.createElement('img');
+      sparkle.src = url; sparkle.alt = '';
+      sparkle.className = `badge-sparkle s${i + 1}`;
+      medal.appendChild(sparkle);
+    });
   }else{
+    medal.className = 'badge-medal placeholder';
+    medal.style.background = `linear-gradient(155deg, ${badge.colors[0]}, ${badge.colors[1]})`;
     const span = document.createElement('span');
     span.className = 'badge-fallback';
     span.textContent = SHAPE_LABEL[badge.shape] || '★';
     medal.appendChild(span);
   }
-  const shine = document.createElement('span');
-  shine.className = 'badge-shine';
-  medal.appendChild(shine);
   cell.appendChild(medal);
 
   const tooltip = document.createElement('div');
@@ -380,37 +418,100 @@ function mountThree(badge){
   const glowLight = new THREE.PointLight(badge.colors[0], 1.4, 10);
   glowLight.position.set(-2,1,2); scene.add(glowLight);
 
-  let geometry;
-  switch(badge.shape){
-    case 'torus': geometry = new THREE.TorusGeometry(0.85, 0.32, 24, 80); break;
-    case 'icosahedron': geometry = new THREE.IcosahedronGeometry(1.05, 0); break;
-    case 'octahedron': geometry = new THREE.OctahedronGeometry(1.1, 0); break;
-    default: geometry = new THREE.CylinderGeometry(1,1,0.28,48);
-  }
-  const material = new THREE.MeshStandardMaterial({
-    color: badge.colors[0], metalness:0.75, roughness:0.22,
-    emissive: new THREE.Color(badge.colors[0]), emissiveIntensity:0.12
-  });
-  const mesh = new THREE.Mesh(geometry, material);
-  scene.add(mesh);
+  // 실제 모델이든 자리표시자 도형이든 이 pivot을 회전시켜 조작합니다.
+  const pivot = new THREE.Group();
+  scene.add(pivot);
+  const disposables = [];
 
-  let rim = null;
-  if(badge.shape === 'cylinder'){
-    const rimGeo = new THREE.TorusGeometry(1.02, 0.05, 16, 64);
-    const rimMat = new THREE.MeshStandardMaterial({ color: badge.colors[1], metalness:0.8, roughness:0.15 });
-    rim = new THREE.Mesh(rimGeo, rimMat);
-    rim.rotation.x = Math.PI/2;
-    scene.add(rim);
+  function buildPlaceholder(){
+    let geometry;
+    switch(badge.shape){
+      case 'torus': geometry = new THREE.TorusGeometry(0.85, 0.32, 24, 80); break;
+      case 'icosahedron': geometry = new THREE.IcosahedronGeometry(1.05, 0); break;
+      case 'octahedron': geometry = new THREE.OctahedronGeometry(1.1, 0); break;
+      default: geometry = new THREE.CylinderGeometry(1,1,0.28,48);
+    }
+    const material = new THREE.MeshStandardMaterial({
+      color: badge.colors[0], metalness:0.75, roughness:0.22,
+      emissive: new THREE.Color(badge.colors[0]), emissiveIntensity:0.12
+    });
+    const mesh = new THREE.Mesh(geometry, material);
+    pivot.add(mesh);
+    disposables.push(geometry, material);
+
+    if(badge.shape === 'cylinder'){
+      const rimGeo = new THREE.TorusGeometry(1.02, 0.05, 16, 64);
+      const rimMat = new THREE.MeshStandardMaterial({ color: badge.colors[1], metalness:0.8, roughness:0.15 });
+      const rim = new THREE.Mesh(rimGeo, rimMat);
+      rim.rotation.x = Math.PI/2;
+      pivot.add(rim);
+      disposables.push(rimGeo, rimMat);
+    }
   }
+
+  if(badge.modelUrl){
+    const loader = new THREE.GLTFLoader();
+    loader.load(
+      badge.modelUrl,
+      (gltf) => {
+        const modelRoot = gltf.scene;
+        // 모델 크기가 제각각이어도 뷰어 안에 일정하게 들어오도록 정규화합니다.
+        const box = new THREE.Box3().setFromObject(modelRoot);
+        const size = new THREE.Vector3(); box.getSize(size);
+        const center = new THREE.Vector3(); box.getCenter(center);
+        const maxDim = Math.max(size.x, size.y, size.z) || 1;
+        const scale = 1.8 / maxDim;
+        modelRoot.scale.setScalar(scale);
+        modelRoot.position.sub(center.multiplyScalar(scale));
+        pivot.add(modelRoot);
+      },
+      undefined,
+      (err) => {
+        console.error('glb 모델 로드 실패, 자리표시자 도형으로 대체합니다.', err);
+        buildPlaceholder();
+      }
+    );
+  } else {
+    buildPlaceholder();
+  }
+
+  // 스파클맵: 흰색(반짝임)/검정(비반짝임) 마스크. AdditiveBlending을 쓰면
+  // 검정 영역은 더해도 아무 효과가 없고, 흰 영역만 빛으로 더해져 마스크로 동작합니다.
+  const sparkleSprites = [];
+  const textureLoader = new THREE.TextureLoader();
+  [badge.sparkleMap1, badge.sparkleMap2].forEach((url, i) => {
+    if(!url) return;
+    const texture = textureLoader.load(url);
+    const material = new THREE.SpriteMaterial({
+      map:texture,
+      color:0xFFF3D6,
+      blending:THREE.AdditiveBlending,
+      transparent:true,
+      depthWrite:false,
+      opacity:0
+    });
+    const sprite = new THREE.Sprite(material);
+    sprite.scale.set(2.3, 2.3, 1);
+    sprite.position.set(0, 0, 0.05);
+    scene.add(sprite);
+    sparkleSprites.push({ sprite, material, phase: i * Math.PI, speed: 1.6 + i * 0.4 });
+    disposables.push(material, texture);
+  });
 
   const state = { dragging:false, lastX:0, lastY:0, rotX:0.35, rotY:0.6 };
-  let raf;
+  let raf, t = 0;
 
   function render(){
+    t += 0.016;
     if(!state.dragging){ state.rotY += 0.004; }
-    mesh.rotation.y = state.rotY;
-    mesh.rotation.x = state.rotX;
-    if(rim){ rim.rotation.y = state.rotY; rim.rotation.z = state.rotX; }
+    pivot.rotation.y = state.rotY;
+    pivot.rotation.x = state.rotX;
+    sparkleSprites.forEach(s => {
+      const wave = Math.max(0, Math.sin(t * s.speed + s.phase));
+      s.material.opacity = wave * 0.85;
+      const scale = 2.3 * (0.94 + wave * 0.1);
+      s.sprite.scale.set(scale, scale, 1);
+    });
     renderer.render(scene, camera);
     raf = requestAnimationFrame(render);
   }
@@ -446,8 +547,7 @@ function mountThree(badge){
     window.removeEventListener('pointermove', onMove);
     window.removeEventListener('pointerup', onUp);
     window.removeEventListener('resize', onResize);
-    geometry.dispose();
-    material.dispose();
+    disposables.forEach(d => d.dispose && d.dispose());
     renderer.dispose();
   };
 }
