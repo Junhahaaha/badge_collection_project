@@ -103,6 +103,7 @@
     position:relative; width:108px; height:108px;
     display:flex; align-items:center; justify-content:center;
     transition:transform .2s ease;
+    isolation:isolate; overflow:hidden;
   }
   .badge-medal.placeholder{
     border-radius:50%;
@@ -111,21 +112,24 @@
   .badge-cell:hover .badge-medal{ transform:translateY(-4px) scale(1.04); }
   .badge-img{ width:100%; height:100%; object-fit:contain; filter:drop-shadow(0 8px 16px rgba(0,0,0,.4)); }
   .badge-fallback{ font-size:28px; font-weight:700; color:rgba(255,255,255,.85); }
-  /* sparkleMap: 흰색(반짝임)/검정(비반짝임) 마스크 이미지.
-     mix-blend-mode:screen 이 검정을 무시하고 흰 영역만 빛나게 더해줍니다. */
-  .badge-sparkle{
-    position:absolute; inset:0; width:100%; height:100%; object-fit:contain;
-    pointer-events:none; opacity:0; mix-blend-mode:screen;
+  /* sparkleMap: 흰색(스와이프 반짝임이 적용되는 부분) / 검정(적용 안 되는 부분)을 나타내는 마스크 이미지.
+     이 mask로 잘라낸 영역 안에서만 대각선 빛줄기가 스와이프되며 지나갑니다. */
+  .badge-sparkle-mask{
+    position:absolute; inset:0; width:100%; height:100%; overflow:hidden; pointer-events:none;
+    mask-repeat:no-repeat; mask-position:center; mask-size:contain; mask-mode:luminance;
+    -webkit-mask-repeat:no-repeat; -webkit-mask-position:center; -webkit-mask-size:contain;
   }
-  .badge-sparkle.s1{ animation:badgeSparkle 3.9s ease-in-out infinite; }
-  .badge-sparkle.s2{ animation:badgeSparkle 3.14s ease-in-out infinite; animation-delay:1.57s; }
-  @keyframes badgeSparkle{
-    0%{ opacity:0; }
-    12.5%{ opacity:.55; }
-    25%{ opacity:.95; }
-    37.5%{ opacity:.55; }
-    50%{ opacity:0; }
-    100%{ opacity:0; }
+  .badge-sparkle-mask::before{
+    content:''; position:absolute; top:-50%; left:-60%; width:40%; height:200%;
+    background:linear-gradient(120deg, transparent, rgba(255,255,255,.9), transparent);
+    transform:rotate(20deg); animation:badgeSweep 3.6s ease-in-out infinite;
+  }
+  .badge-sparkle-mask.s2::before{ animation-delay:1.8s; }
+  @keyframes badgeSweep{
+    0%{ left:-60%; opacity:0; }
+    8%{ opacity:.95; }
+    22%{ left:130%; opacity:0; }
+    100%{ left:130%; opacity:0; }
   }
 
   .tooltip{
@@ -336,9 +340,10 @@ function renderBadgeCell(badge, index){
 
     [badge.sparkleMap1, badge.sparkleMap2].forEach((url, i) => {
       if(!url) return;
-      const sparkle = document.createElement('img');
-      sparkle.src = url; sparkle.alt = '';
-      sparkle.className = `badge-sparkle s${i + 1}`;
+      const sparkle = document.createElement('div');
+      sparkle.className = `badge-sparkle-mask s${i + 1}`;
+      sparkle.style.maskImage = `url("${url}")`;
+      sparkle.style.webkitMaskImage = `url("${url}")`;
       medal.appendChild(sparkle);
     });
   }else{
@@ -475,43 +480,13 @@ function mountThree(badge){
     buildPlaceholder();
   }
 
-  // 스파클맵: 흰색(반짝임)/검정(비반짝임) 마스크. AdditiveBlending을 쓰면
-  // 검정 영역은 더해도 아무 효과가 없고, 흰 영역만 빛으로 더해져 마스크로 동작합니다.
-  const sparkleSprites = [];
-  const textureLoader = new THREE.TextureLoader();
-  [badge.sparkleMap1, badge.sparkleMap2].forEach((url, i) => {
-    if(!url) return;
-    const texture = textureLoader.load(url);
-    const material = new THREE.SpriteMaterial({
-      map:texture,
-      color:0xFFF3D6,
-      blending:THREE.AdditiveBlending,
-      transparent:true,
-      depthWrite:false,
-      opacity:0
-    });
-    const sprite = new THREE.Sprite(material);
-    sprite.scale.set(2.3, 2.3, 1);
-    sprite.position.set(0, 0, 0.05);
-    scene.add(sprite);
-    sparkleSprites.push({ sprite, material, phase: i * Math.PI, speed: 1.6 + i * 0.4 });
-    disposables.push(material, texture);
-  });
-
   const state = { dragging:false, lastX:0, lastY:0, rotX:0.35, rotY:0.6 };
-  let raf, t = 0;
+  let raf;
 
   function render(){
-    t += 0.016;
     if(!state.dragging){ state.rotY += 0.004; }
     pivot.rotation.y = state.rotY;
     pivot.rotation.x = state.rotX;
-    sparkleSprites.forEach(s => {
-      const wave = Math.max(0, Math.sin(t * s.speed + s.phase));
-      s.material.opacity = wave * 0.85;
-      const scale = 2.3 * (0.94 + wave * 0.1);
-      s.sprite.scale.set(scale, scale, 1);
-    });
     renderer.render(scene, camera);
     raf = requestAnimationFrame(render);
   }
