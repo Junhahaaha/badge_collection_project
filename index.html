@@ -83,6 +83,16 @@
     animation:floatIn .6s ease both; width:max-content; justify-self:center;
   }
   @keyframes floatIn{ from{opacity:0; transform:translateY(10px);} to{opacity:1; transform:translateY(0);} }
+  /* 뱃지 클릭 시 살짝 떠올랐다가 아래로 슉 사라지는 전환 애니메이션 */
+  .badge-cell.badge-launch{
+    animation:badgeLaunchOut .5s cubic-bezier(.5,0,.75,0) forwards;
+    pointer-events:none;
+  }
+  @keyframes badgeLaunchOut{
+    0%{ transform:translateY(0) scale(1); opacity:1; }
+    28%{ transform:translateY(-16px) scale(1.05); opacity:1; }
+    100%{ transform:translateY(220px) scale(.8); opacity:0; }
+  }
   .badge-medal{
     position:relative; width:160px; height:160px;
     display:flex; align-items:center; justify-content:center;
@@ -157,6 +167,12 @@
   .viewer-panel{
     width:min(420px, 88vw); background:linear-gradient(180deg, #191F3D, #12162E); border-radius:20px;
     padding:24px; box-shadow:0 30px 80px rgba(0,0,0,.55), 0 0 0 1px rgba(217,178,108,.2); text-align:center;
+    animation:panelDropIn .55s cubic-bezier(.22,.85,.32,1.05) both;
+  }
+  @keyframes panelDropIn{
+    0%{ transform:translateY(-160%); opacity:0; }
+    70%{ transform:translateY(6%); opacity:1; }
+    100%{ transform:translateY(0); opacity:1; }
   }
   .viewer-canvas{ width:100%; height:min(320px, 60vw); touch-action:none; cursor:grab; }
   .viewer-canvas:active{ cursor:grabbing; }
@@ -355,7 +371,7 @@ function renderBadgeCell(badge, index){
     tooltip.classList.add('visible');
   });
   cell.addEventListener('mouseleave', () => { tooltip.classList.remove('visible'); });
-  cell.addEventListener('click', () => openViewer(badge));
+  cell.addEventListener('click', () => launchViewer(cell, badge));
 
   return cell;
 }
@@ -374,6 +390,17 @@ const viewerDesc = document.getElementById('viewerDesc');
 const closeViewerBtn = document.getElementById('closeViewerBtn');
 
 let threeCleanup = null;
+let launchedCell = null;
+let isLaunching = false;
+
+function launchViewer(cell, badge){
+  if(isLaunching) return;
+  isLaunching = true;
+  launchedCell = cell;
+  cell.style.animationDelay = '0s'; // 진입 애니메이션의 stagger 지연이 남아있으면 퇴장 애니메이션도 늦게 시작됨
+  cell.classList.add('badge-launch');
+  cell.addEventListener('animationend', () => openViewer(badge), { once:true });
+}
 
 function openViewer(badge){
   viewerName.textContent = badge.name;
@@ -386,6 +413,8 @@ function closeViewer(){
   viewerOverlay.style.display = 'none';
   if(threeCleanup){ threeCleanup(); threeCleanup = null; }
   viewerCanvasHost.innerHTML = '';
+  if(launchedCell){ launchedCell.classList.remove('badge-launch'); launchedCell = null; }
+  isLaunching = false;
 }
 closeViewerBtn.addEventListener('click', closeViewer);
 viewerOverlay.addEventListener('click', (e) => { if(e.target === viewerOverlay) closeViewer(); });
@@ -475,10 +504,23 @@ function mountThree(badge){
 
   // glb 모델은 정면을 바라보도록 시작하고, 도형 자리표시자는 보기 좋은 각도로 시작합니다.
   const initialTilt = badge.modelUrl ? { rotX:0, rotY:0 } : { rotX:0.35, rotY:0.6 };
-  const state = { dragging:false, lastX:0, lastY:0, rotX:initialTilt.rotX, rotY:initialTilt.rotY };
+  const state = {
+    dragging:false, lastX:0, lastY:0,
+    rotX:initialTilt.rotX, rotY:initialTilt.rotY,
+    velX:0, velY:0
+  };
   let raf;
+  const MOMENTUM_DAMPING = 0.94;
+  const MOMENTUM_STOP_THRESHOLD = 0.0003;
 
   function render(){
+    if(!state.dragging && (Math.abs(state.velX) > MOMENTUM_STOP_THRESHOLD || Math.abs(state.velY) > MOMENTUM_STOP_THRESHOLD)){
+      state.rotY += state.velY;
+      state.rotX += state.velX;
+      state.rotX = Math.max(-1.1, Math.min(1.1, state.rotX));
+      state.velY *= MOMENTUM_DAMPING;
+      state.velX *= MOMENTUM_DAMPING;
+    }
     pivot.rotation.y = state.rotY;
     pivot.rotation.x = state.rotX;
     renderer.render(scene, camera);
@@ -487,13 +529,19 @@ function mountThree(badge){
   render();
 
   const el = renderer.domElement;
-  function onDown(e){ state.dragging = true; state.lastX = e.clientX; state.lastY = e.clientY; }
+  function onDown(e){
+    state.dragging = true; state.lastX = e.clientX; state.lastY = e.clientY;
+    state.velX = 0; state.velY = 0;
+  }
   function onMove(e){
     if(!state.dragging) return;
     const dx = e.clientX - state.lastX, dy = e.clientY - state.lastY;
-    state.rotY += dx * 0.01;
-    state.rotX += dy * 0.01;
+    const deltaY = dx * 0.01, deltaX = dy * 0.01;
+    state.rotY += deltaY;
+    state.rotX += deltaX;
     state.rotX = Math.max(-1.1, Math.min(1.1, state.rotX));
+    state.velY = deltaY;
+    state.velX = deltaX;
     state.lastX = e.clientX; state.lastY = e.clientY;
   }
   function onUp(){ state.dragging = false; }
