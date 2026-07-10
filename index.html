@@ -413,11 +413,16 @@ function mountThree(badge){
   const renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true });
   renderer.setSize(width, height);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.outputEncoding = THREE.sRGBEncoding;
   mount.appendChild(renderer.domElement);
 
-  scene.add(new THREE.AmbientLight(0xffffff, 0.55));
-  const key = new THREE.DirectionalLight(0xffffff, 0.9);
+  scene.add(new THREE.AmbientLight(0xffffff, 1.1));
+  const key = new THREE.DirectionalLight(0xffffff, 1.2);
   key.position.set(2,3,4); scene.add(key);
+  const fill = new THREE.DirectionalLight(0xffffff, 0.7);
+  fill.position.set(-3,-1,3); scene.add(fill);
+  const rimLight = new THREE.DirectionalLight(0xffffff, 0.5);
+  rimLight.position.set(0,2,-4); scene.add(rimLight);
   const glowLight = new THREE.PointLight(badge.colors[0], 1.4, 10);
   glowLight.position.set(-2,1,2); scene.add(glowLight);
 
