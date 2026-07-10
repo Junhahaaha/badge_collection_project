@@ -158,23 +158,31 @@
   }
   @keyframes fadeIn{ from{opacity:0;} to{opacity:1;} }
   .close-btn{
-    position:absolute; top:24px; left:24px; width:42px; height:42px; border-radius:50%;
-    border:1px solid rgba(245,243,236,.35); background:rgba(255,255,255,.06); color:#F5F3EC;
-    font-size:17px; cursor:pointer; display:flex; align-items:center; justify-content:center;
+    position:absolute; top:14px; left:14px; z-index:2; width:36px; height:36px; border-radius:50%;
+    border:1px solid rgba(245,243,236,.35); background:rgba(255,255,255,.08); color:#F5F3EC;
+    font-size:15px; cursor:pointer; display:flex; align-items:center; justify-content:center;
     transition:background .15s ease, transform .15s ease;
   }
-  .close-btn:hover{ background:rgba(255,255,255,.16); transform:scale(1.06); }
+  .close-btn:hover{ background:rgba(255,255,255,.18); transform:scale(1.06); }
   .viewer-panel{
+    position:relative;
     width:min(420px, 88vw); background:linear-gradient(180deg, #191F3D, #12162E); border-radius:20px;
     padding:24px; box-shadow:0 30px 80px rgba(0,0,0,.55), 0 0 0 1px rgba(217,178,108,.2); text-align:center;
-    animation:panelDropIn .55s cubic-bezier(.22,.85,.32,1.05) both;
+    animation:panelAppear .3s ease-out both;
   }
-  @keyframes panelDropIn{
+  @keyframes panelAppear{
+    0%{ opacity:0; transform:scale(.92); }
+    100%{ opacity:1; transform:scale(1); }
+  }
+  .viewer-canvas{
+    width:100%; height:min(320px, 60vw); touch-action:none; cursor:grab;
+    animation:badgeDropIn .5s cubic-bezier(.22,.85,.32,1.05) .28s both;
+  }
+  @keyframes badgeDropIn{
     0%{ transform:translateY(-160%); opacity:0; }
     70%{ transform:translateY(6%); opacity:1; }
     100%{ transform:translateY(0); opacity:1; }
   }
-  .viewer-canvas{ width:100%; height:min(320px, 60vw); touch-action:none; cursor:grab; }
   .viewer-canvas:active{ cursor:grabbing; }
   .viewer-caption{ margin-top:12px; }
   .viewer-name{ font-weight:700; font-size:16px; margin:0 0 6px; color:#F5F3EC; }
@@ -215,8 +223,8 @@
 
   <!-- 3D 뷰어 오버레이 -->
   <div class="viewer-overlay" id="viewerOverlay">
-    <button class="close-btn" id="closeViewerBtn" aria-label="닫기">✕</button>
     <div class="viewer-panel">
+      <button class="close-btn" id="closeViewerBtn" aria-label="닫기">✕</button>
       <div class="viewer-canvas" id="viewerCanvas"></div>
       <div class="viewer-caption">
         <p class="viewer-name" id="viewerName"></p>
@@ -417,8 +425,6 @@ function closeViewer(){
   isLaunching = false;
 }
 closeViewerBtn.addEventListener('click', closeViewer);
-viewerOverlay.addEventListener('click', (e) => { if(e.target === viewerOverlay) closeViewer(); });
-document.addEventListener('keydown', (e) => { if(e.key === 'Escape' && viewerOverlay.style.display === 'flex') closeViewer(); });
 
 function mountThree(badge){
   const mount = viewerCanvasHost;
