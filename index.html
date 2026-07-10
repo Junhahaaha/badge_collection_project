@@ -482,7 +482,6 @@ function mountThree(badge){
   let raf;
 
   function render(){
-    if(!state.dragging){ state.rotY += 0.004; }
     pivot.rotation.y = state.rotY;
     pivot.rotation.x = state.rotX;
     renderer.render(scene, camera);
