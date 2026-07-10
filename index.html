@@ -397,7 +397,7 @@ function mountThree(badge){
   const height = mount.clientHeight || 320;
 
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(0, width/height, 0.1, 100);
+  const camera = new THREE.PerspectiveCamera(40, width/height, 0.1, 100);
   camera.position.set(0,0,4.0);
 
   const renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true });
@@ -473,7 +473,9 @@ function mountThree(badge){
     buildPlaceholder();
   }
 
-  const state = { dragging:false, lastX:0, lastY:0, rotX:0.35, rotY:0.6 };
+  // glb 모델은 정면을 바라보도록 시작하고, 도형 자리표시자는 보기 좋은 각도로 시작합니다.
+  const initialTilt = badge.modelUrl ? { rotX:0, rotY:0 } : { rotX:0.35, rotY:0.6 };
+  const state = { dragging:false, lastX:0, lastY:0, rotX:initialTilt.rotX, rotY:initialTilt.rotY };
   let raf;
 
   function render(){
