@@ -182,6 +182,25 @@
   .viewer-caption{ margin-top:12px; }
   .viewer-name{ font-weight:700; font-size:16px; margin:0 0 6px; color:#F5F3EC; }
   .viewer-desc{ font-weight:300; font-size:12.5px; color:#C9C3DA; margin:0 0 10px; line-height:1.5; }
+  .viewer-volume{ margin-top:10px; display:flex; align-items:center; justify-content:center; gap:7px; }
+  .viewer-volume-icon{ font-size:11px; opacity:.6; }
+  .viewer-volume-slider{
+    -webkit-appearance:none; appearance:none;
+    width:84px; height:3px; border-radius:999px;
+    background:rgba(245,243,236,.22); outline:none; cursor:pointer;
+  }
+  .viewer-volume-slider::-webkit-slider-thumb{
+    -webkit-appearance:none; appearance:none;
+    width:10px; height:10px; border-radius:50%;
+    background:var(--gold); cursor:pointer; border:none;
+  }
+  .viewer-volume-slider::-moz-range-thumb{
+    width:10px; height:10px; border-radius:50%;
+    background:var(--gold); cursor:pointer; border:none;
+  }
+  .viewer-volume-slider::-moz-range-track{
+    height:3px; border-radius:999px; background:rgba(245,243,236,.22);
+  }
 </style>
 </head>
 <body>
@@ -224,6 +243,10 @@
       <div class="viewer-caption">
         <p class="viewer-name" id="viewerName"></p>
         <p class="viewer-desc" id="viewerDesc"></p>
+      </div>
+      <div class="viewer-volume">
+        <span class="viewer-volume-icon" aria-hidden="true">🔈</span>
+        <input type="range" id="volumeSlider" class="viewer-volume-slider" min="0" max="100" value="70" aria-label="효과음 볼륨" />
       </div>
     </div>
   </div>
@@ -394,10 +417,15 @@ const viewerCanvasHost = document.getElementById('viewerCanvas');
 const viewerName = document.getElementById('viewerName');
 const viewerDesc = document.getElementById('viewerDesc');
 const closeViewerBtn = document.getElementById('closeViewerBtn');
+const volumeSlider = document.getElementById('volumeSlider');
 
 let threeCleanup = null;
 let launchedCell = null;
 let isLaunching = false;
+let badgeSoundVolume = Number(volumeSlider.value) / 100;
+volumeSlider.addEventListener('input', () => {
+  badgeSoundVolume = Number(volumeSlider.value) / 100;
+});
 
 function launchViewer(cell, badge){
   if(isLaunching) return;
@@ -411,6 +439,7 @@ function launchViewer(cell, badge){
 function playBadgeSound(url){
   try{
     const audio = new Audio(url);
+    audio.volume = badgeSoundVolume;
     audio.play().catch(() => {});
   }catch(err){
     console.error('뱃지 효과음 재생 실패', err);
@@ -532,6 +561,7 @@ function mountThree(badge){
   const panelEl = mount.closest('.viewer-panel');
   const DROP_START_Y = -300;
   const DROP_DELAY = 0.28; // 배경 패널이 먼저 자리를 잡은 뒤 뱃지가 떨어지기 시작
+  const CLICK_BOUNCE_KICK = 340; // 뱃지 클릭(사운드 재생) 시 "뽀용"하고 튀는 정도
   const drop = { y:DROP_START_Y, vel:0, elapsed:0, started:false };
   const panelSquash = { v:0, vel:0, triggered:false };
   let lastFrameTime = null;
@@ -613,7 +643,10 @@ function mountThree(badge){
     );
     raycaster.setFromCamera(ndc, camera);
     const hits = raycaster.intersectObject(pivot, true);
-    if(hits.length > 0) playBadgeSound(badge.sound);
+    if(hits.length > 0){
+      playBadgeSound(badge.sound);
+      drop.vel += CLICK_BOUNCE_KICK; // 착지 스프링을 그대로 재활용해 "뽀용" 튕기게 함
+    }
   }
 
   const el = renderer.domElement;
