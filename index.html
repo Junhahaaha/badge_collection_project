@@ -289,7 +289,7 @@ const BADGE_CATALOG = {
   b6: {
     name:"겨울오로라 뱃지",
     desc:"2025 겨울방학 스터디를 진행하여 얻은 뱃지입니다.",
-    colors:["#4FD3C4","#C9F7EA"],
+    colors:["#D9B26C","#F4E3B2"],
     shape:"cylinder",
     image:"assets/images/002-winterstd.png",
     sparkleMap1:"assets/sparkle-maps/002-winterstd-sparkle-1.png",
@@ -502,6 +502,8 @@ function mountThree(badge){
   const pivot = new THREE.Group();
   scene.add(pivot);
   const disposables = [];
+  let mixer = null;
+  let clipActions = [];
 
   function buildPlaceholder(){
     let geometry;
@@ -540,10 +542,21 @@ function mountThree(badge){
         const size = new THREE.Vector3(); box.getSize(size);
         const center = new THREE.Vector3(); box.getCenter(center);
         const maxDim = Math.max(size.x, size.y, size.z) || 1;
-        const scale = 1.8 / maxDim;
+        const scale = 2.4 / maxDim;
         modelRoot.scale.setScalar(scale);
         modelRoot.position.sub(center.multiplyScalar(scale));
         pivot.add(modelRoot);
+
+        // glb에 애니메이션 클립이 있으면 재생 준비만 해두고, 실제 재생은 뱃지 클릭 시 트리거합니다.
+        if(gltf.animations && gltf.animations.length){
+          mixer = new THREE.AnimationMixer(modelRoot);
+          clipActions = gltf.animations.map((clip) => {
+            const action = mixer.clipAction(clip);
+            action.setLoop(THREE.LoopOnce, 1);
+            action.clampWhenFinished = true;
+            return action;
+          });
+        }
       },
       undefined,
       (err) => {
@@ -635,6 +648,7 @@ function mountThree(badge){
       updateDropPhysics(drop.started ? frameDt : 0);
       drop.started = true;
     }
+    if(mixer) mixer.update(frameDt);
 
     renderer.render(scene, camera);
     raf = requestAnimationFrame(render);
@@ -645,8 +659,8 @@ function mountThree(badge){
   const raycaster = new THREE.Raycaster();
   let clickStart = null;
 
-  function tryPlayBadgeSound(e){
-    if(!badge.sound) return;
+  function handleBadgeClick(e){
+    if(!badge.sound && !clipActions.length) return;
     const rect = el.getBoundingClientRect();
     const ndc = new THREE.Vector2(
       ((e.clientX - rect.left) / rect.width) * 2 - 1,
@@ -655,7 +669,8 @@ function mountThree(badge){
     raycaster.setFromCamera(ndc, camera);
     const hits = raycaster.intersectObject(pivot, true);
     if(hits.length > 0){
-      playBadgeSound(badge.sound);
+      if(badge.sound) playBadgeSound(badge.sound);
+      clipActions.forEach((action) => { action.reset(); action.play(); });
       drop.vel += CLICK_BOUNCE_KICK; // 착지 스프링을 그대로 재활용해 "뽀용" 튕기게 함
     }
   }
@@ -682,7 +697,7 @@ function mountThree(badge){
     if(clickStart){
       const dist = Math.hypot(e.clientX - clickStart.x, e.clientY - clickStart.y);
       const heldFor = performance.now() - clickStart.time;
-      if(dist < 6 && heldFor < 500) tryPlayBadgeSound(e);
+      if(dist < 6 && heldFor < 500) handleBadgeClick(e);
       clickStart = null;
     }
   }
