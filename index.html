@@ -168,20 +168,32 @@
     position:relative;
     width:min(420px, 88vw); background:linear-gradient(180deg, #191F3D, #12162E); border-radius:20px;
     padding:24px; box-shadow:0 30px 80px rgba(0,0,0,.55), 0 0 0 1px rgba(217,178,108,.2); text-align:center;
-    animation:panelAppear .3s ease-out both;
+    animation:panelAppear .95s cubic-bezier(.25,.46,.45,.94) both;
   }
+  /* 0~35%는 패널이 나타나는 구간, 60~85%는 뱃지가 착지하는 순간에 맞춰
+     배경이 살짝 눌렸다 펴지며 받아내는 듯한 반응을 보여줍니다. */
   @keyframes panelAppear{
     0%{ opacity:0; transform:scale(.92); }
-    100%{ opacity:1; transform:scale(1); }
+    35%{ opacity:1; transform:scale(1); }
+    60%{ transform:scale(1); }
+    69%{ transform:scale(1.02, 0.96); }
+    80%{ transform:scale(0.99, 1.008); }
+    100%{ transform:scale(1); }
   }
   .viewer-canvas{
     width:100%; height:min(320px, 60vw); touch-action:none; cursor:grab;
-    animation:badgeDropIn .5s cubic-bezier(.22,.85,.32,1.05) .28s both;
+    transform-origin:bottom center;
+    animation:badgeDropIn .6s ease .28s both;
   }
+  /* 낙하 후 바닥에 포옥 눌렸다가(scaleY 축소) 통통 튕기며 안정되는 궤적 */
   @keyframes badgeDropIn{
-    0%{ transform:translateY(-160%); opacity:0; }
-    70%{ transform:translateY(6%); opacity:1; }
-    100%{ transform:translateY(0); opacity:1; }
+    0%{ transform:translateY(-190%) scale(1,1); opacity:0; }
+    48%{ transform:translateY(3%) scale(1,1); opacity:1; }
+    55%{ transform:translateY(7%) scale(1.12,0.84); }
+    66%{ transform:translateY(-4%) scale(0.95,1.08); }
+    78%{ transform:translateY(2%) scale(1.03,0.97); }
+    90%{ transform:translateY(-1%) scale(0.99,1.01); }
+    100%{ transform:translateY(0) scale(1,1); opacity:1; }
   }
   .viewer-canvas:active{ cursor:grabbing; }
   .viewer-caption{ margin-top:12px; }
