@@ -96,11 +96,11 @@
   .empty-text{ font-size:16px; font-weight:500; margin:0 0 8px; color:#F5F3EC; }
   .empty-sub{ font-size:13px; color:#928DAE; margin:0; }
 
-  .badge-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(140px,1fr)); gap:28px; max-width:900px; }
+  .badge-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(190px,1fr)); gap:32px; max-width:1000px; }
   .badge-cell{ position:relative; display:flex; flex-direction:column; align-items:center; cursor:pointer; animation:floatIn .6s ease both; }
   @keyframes floatIn{ from{opacity:0; transform:translateY(10px);} to{opacity:1; transform:translateY(0);} }
   .badge-medal{
-    position:relative; width:108px; height:108px;
+    position:relative; width:160px; height:160px;
     display:flex; align-items:center; justify-content:center;
     transition:transform .2s ease;
     isolation:isolate; overflow:hidden;
@@ -168,7 +168,6 @@
   .viewer-caption{ margin-top:12px; }
   .viewer-name{ font-weight:700; font-size:16px; margin:0 0 6px; color:#F5F3EC; }
   .viewer-desc{ font-weight:300; font-size:12.5px; color:#C9C3DA; margin:0 0 10px; line-height:1.5; }
-  .viewer-hint{ font-size:11px; color:#8D86A8; margin:0; }
 </style>
 </head>
 <body>
@@ -218,7 +217,6 @@
       <div class="viewer-caption">
         <p class="viewer-name" id="viewerName"></p>
         <p class="viewer-desc" id="viewerDesc"></p>
-        <p class="viewer-hint">드래그해서 360˚로 돌려보세요</p>
       </div>
     </div>
   </div>
