@@ -518,8 +518,10 @@ function playBadgeSound(url){
     const audio = new Audio(url);
     audio.volume = badgeSoundVolume;
     audio.play().catch(() => {});
+    return audio;
   }catch(err){
     console.error('뱃지 효과음 재생 실패', err);
+    return null;
   }
 }
 
@@ -802,8 +804,12 @@ function mountThree(badge){
   // 뱃지를 클릭(드래그 아님)했을 때만 효과음을 재생하기 위한 레이캐스팅
   const raycaster = new THREE.Raycaster();
   let clickStart = null;
+  let canClickBadge = true; // 사운드가 다 재생될 때까지 재클릭으로 다시 재생하지 못하도록 막는 쿨다운
+  const CLICK_COOLDOWN_FALLBACK = 900; // 사운드가 없거나 길이를 알 수 없을 때의 기본 대기시간(ms)
+  const CLICK_COOLDOWN_SAFETY = 6000; // 'ended' 이벤트가 오지 않는 예외 상황을 대비한 최대 대기시간(ms)
 
   function handleBadgeClick(e){
+    if(!canClickBadge) return;
     if(!badge.sound && !clipActions.length) return;
     const rect = el.getBoundingClientRect();
     const ndc = new THREE.Vector2(
@@ -813,7 +819,20 @@ function mountThree(badge){
     raycaster.setFromCamera(ndc, camera);
     const hits = raycaster.intersectObject(pivot, true);
     if(hits.length > 0){
-      if(badge.sound) playBadgeSound(badge.sound);
+      canClickBadge = false;
+      if(badge.sound){
+        const audio = playBadgeSound(badge.sound);
+        if(audio){
+          const release = () => { canClickBadge = true; };
+          audio.addEventListener('ended', release, { once:true });
+          audio.addEventListener('error', release, { once:true });
+          setTimeout(release, CLICK_COOLDOWN_SAFETY);
+        }else{
+          setTimeout(() => { canClickBadge = true; }, CLICK_COOLDOWN_FALLBACK);
+        }
+      }else{
+        setTimeout(() => { canClickBadge = true; }, CLICK_COOLDOWN_FALLBACK);
+      }
       clipActions.forEach((action) => { action.reset(); action.play(); });
       drop.vel += CLICK_BOUNCE_KICK; // 착지 스프링을 그대로 재활용해 "뽀용" 튕기게 함
     }
