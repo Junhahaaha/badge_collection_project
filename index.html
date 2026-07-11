@@ -58,7 +58,7 @@
   /* 컬렉션 화면 */
   .collection-screen{
     position:relative; min-height:100vh; padding:40px 6vw 80px; display:none;
-    background:#FFFFFF; color:#262035;
+    background:#b82c40; color:#262035;
   }
   .collection-header{
     position:relative; z-index:1; display:flex; align-items:flex-end; justify-content:flex-end;
@@ -77,7 +77,7 @@
   .empty-text{ font-size:16px; font-weight:500; margin:0 0 8px; color:#262035; }
   .empty-sub{ font-size:13px; color:#847DA0; margin:0; }
 
-  .badge-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(240px,1fr)); gap:36px; max-width:1200px; }
+  .badge-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(240px,1fr)); gap:18px; max-width:1200px; }
   .badge-cell{
     position:relative; display:flex; flex-direction:column; align-items:center; cursor:pointer;
     animation:floatIn .6s ease both; width:max-content; justify-self:center;
@@ -104,7 +104,7 @@
     box-shadow:0 10px 24px rgba(0,0,0,.4), inset 0 0 0 2px rgba(255,255,255,.18);
   }
   .badge-cell:hover .badge-medal{ transform:translateY(-4px); }
-  .badge-img{ width:100%; height:100%; object-fit:contain; filter:drop-shadow(0 1px 3px rgba(0,0,0,.35)); }
+  .badge-img{ width:100%; height:100%; object-fit:contain; filter:drop-shadow(0 1px 3px rgba(255,255,255,.55)); }
   .badge-fallback{ font-size:28px; font-weight:700; color:rgba(255,255,255,.85); }
   /* sparkleMap: 흰색(스와이프 반짝임이 적용되는 부분) / 검정(적용 안 되는 부분)을 나타내는 마스크 이미지.
      이 mask로 잘라낸 영역 안에서만 대각선 빛줄기가 스와이프되며 지나갑니다. */
@@ -128,7 +128,7 @@
 
   /* 특별 뱃지: 카드 주변에 은은하게 떠다니는 반짝이 파티클 */
   .badge-particles{
-    position:absolute; inset:-14px; pointer-events:none; z-index:1;
+    position:absolute; inset:-6px; pointer-events:none; z-index:1;
   }
   .badge-particle{
     position:absolute; opacity:0;
@@ -355,14 +355,14 @@ const SHAPE_LABEL = { cylinder:"메", icosahedron:"보", octahedron:"각", torus
 
 // 특별(special) 뱃지 카드 주변에 흩뿌릴 파티클의 고정 배치(퍼센트 좌표는 .badge-particles 기준).
 const PARTICLE_LAYOUT = [
-  { top:'2%',  left:'10%', size:8,  delay:'0s',   duration:'1.1s' },
-  { top:'14%', left:'92%', size:7,  delay:'.2s',  duration:'.9s'  },
-  { top:'48%', left:'-4%', size:10, delay:'.4s',  duration:'1.2s' },
-  { top:'82%', left:'6%',  size:7,  delay:'.6s',  duration:'1.0s' },
-  { top:'90%', left:'88%', size:8,  delay:'.1s',  duration:'1.1s' },
-  { top:'60%', left:'98%', size:7,  delay:'.8s',  duration:'.9s'  },
-  { top:'-2%', left:'55%', size:8,  delay:'.5s',  duration:'1.2s' },
-  { top:'96%', left:'46%', size:7,  delay:'.3s',  duration:'1.0s' }
+  { top:'6%',  left:'16%', size:13, delay:'0s',   duration:'1.1s' },
+  { top:'18%', left:'86%', size:11, delay:'.2s',  duration:'.9s'  },
+  { top:'48%', left:'4%',  size:15, delay:'.4s',  duration:'1.2s' },
+  { top:'78%', left:'12%', size:11, delay:'.6s',  duration:'1.0s' },
+  { top:'86%', left:'82%', size:13, delay:'.1s',  duration:'1.1s' },
+  { top:'58%', left:'92%', size:11, delay:'.8s',  duration:'.9s'  },
+  { top:'4%',  left:'54%', size:12, delay:'.5s',  duration:'1.2s' },
+  { top:'90%', left:'48%', size:11, delay:'.3s',  duration:'1.0s' }
 ];
 
 /* ---------------- 화면 전환 ---------------- */
