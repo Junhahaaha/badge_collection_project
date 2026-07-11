@@ -131,10 +131,18 @@
     position:absolute; inset:-14px; pointer-events:none; z-index:1;
   }
   .badge-particle{
-    position:absolute; border-radius:50%; opacity:0;
-    background:radial-gradient(circle, #FFFBEF 0%, var(--gold) 60%, transparent 100%);
-    box-shadow:0 0 6px 1px rgba(217,178,108,.75);
+    position:absolute; opacity:0;
     animation-name:particleTwinkle; animation-timing-function:ease-in-out; animation-iteration-count:infinite;
+  }
+  .badge-particle::before{
+    content:''; position:absolute; inset:-70%; border-radius:50%;
+    background:radial-gradient(circle, rgba(255,251,239,.9) 0%, rgba(217,178,108,.35) 55%, transparent 75%);
+    filter:blur(1px);
+  }
+  .badge-particle::after{
+    content:''; position:absolute; inset:0;
+    background:linear-gradient(135deg, #FFFBEF, var(--gold));
+    clip-path:polygon(50% 0%, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0% 50%, 38% 38%);
   }
   @keyframes particleTwinkle{
     0%,100%{ opacity:0; transform:scale(.4); }
@@ -335,14 +343,14 @@ const SHAPE_LABEL = { cylinder:"메", icosahedron:"보", octahedron:"각", torus
 
 // 특별(special) 뱃지 카드 주변에 흩뿌릴 파티클의 고정 배치(퍼센트 좌표는 .badge-particles 기준).
 const PARTICLE_LAYOUT = [
-  { top:'2%',  left:'10%', size:5, delay:'0s',   duration:'2.6s' },
-  { top:'14%', left:'92%', size:4, delay:'.4s',  duration:'2.2s' },
-  { top:'48%', left:'-4%', size:6, delay:'.9s',  duration:'2.8s' },
-  { top:'82%', left:'6%',  size:4, delay:'1.3s', duration:'2.3s' },
-  { top:'90%', left:'88%', size:5, delay:'.2s',  duration:'2.5s' },
-  { top:'60%', left:'98%', size:4, delay:'1.7s', duration:'2.1s' },
-  { top:'-2%', left:'55%', size:5, delay:'1s',   duration:'2.7s' },
-  { top:'96%', left:'46%', size:4, delay:'.6s',  duration:'2.4s' }
+  { top:'2%',  left:'10%', size:8,  delay:'0s',   duration:'2.6s' },
+  { top:'14%', left:'92%', size:7,  delay:'.4s',  duration:'2.2s' },
+  { top:'48%', left:'-4%', size:10, delay:'.9s',  duration:'2.8s' },
+  { top:'82%', left:'6%',  size:7,  delay:'1.3s', duration:'2.3s' },
+  { top:'90%', left:'88%', size:8,  delay:'.2s',  duration:'2.5s' },
+  { top:'60%', left:'98%', size:7,  delay:'1.7s', duration:'2.1s' },
+  { top:'-2%', left:'55%', size:8,  delay:'1s',   duration:'2.7s' },
+  { top:'96%', left:'46%', size:7,  delay:'.6s',  duration:'2.4s' }
 ];
 
 /* ---------------- 화면 전환 ---------------- */
@@ -519,20 +527,38 @@ function closeViewer(){
 }
 closeViewerBtn.addEventListener('click', closeViewer);
 
-// 특별(special) 뱃지의 3D 파티클용 은은한 광점 텍스처. 뷰어를 열 때마다 새로 만들지 않고 재사용합니다.
+// 특별(special) 뱃지의 3D 파티클용 은은한 광점 텍스처(4개의 침이 있는 반짝임 별 모양).
+// 뷰어를 열 때마다 새로 만들지 않고 재사용합니다.
 let sparkleTexture = null;
 function getSparkleTexture(){
   if(sparkleTexture) return sparkleTexture;
   const size = 64;
+  const cx = size / 2, cy = size / 2;
   const canvas = document.createElement('canvas');
   canvas.width = size; canvas.height = size;
   const ctx = canvas.getContext('2d');
-  const gradient = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
+
+  // 4개의 뾰족한 침을 가진 별 모양 경로 (바깥/안쪽 반지름을 번갈아 찍어 만든 8각 별)
+  const outerR = size * 0.42, innerR = size * 0.11;
+  ctx.beginPath();
+  for(let i = 0; i < 8; i++){
+    const angle = (Math.PI / 4) * i - Math.PI / 2;
+    const r = i % 2 === 0 ? outerR : innerR;
+    const x = cx + r * Math.cos(angle);
+    const y = cy + r * Math.sin(angle);
+    if(i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+
+  const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, outerR);
   gradient.addColorStop(0, 'rgba(255,255,255,1)');
-  gradient.addColorStop(0.4, 'rgba(255,240,200,.9)');
-  gradient.addColorStop(1, 'rgba(255,240,200,0)');
+  gradient.addColorStop(0.5, 'rgba(255,240,200,.95)');
+  gradient.addColorStop(1, 'rgba(217,178,108,.15)');
+  ctx.shadowColor = 'rgba(255,240,200,.9)';
+  ctx.shadowBlur = size * 0.14;
   ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, size, size);
+  ctx.fill();
+
   sparkleTexture = new THREE.CanvasTexture(canvas);
   return sparkleTexture;
 }
