@@ -77,7 +77,7 @@
   .empty-text{ font-size:16px; font-weight:500; margin:0 0 8px; color:#262035; }
   .empty-sub{ font-size:13px; color:#847DA0; margin:0; }
 
-  .badge-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(240px,1fr)); gap:12px; max-width:1200px; }
+  .badge-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(240px,1fr)); gap:4px; max-width:1200px; }
   .badge-cell{
     position:relative; display:flex; flex-direction:column; align-items:center; cursor:pointer;
     animation:floatIn .6s ease both; width:max-content; justify-self:center;
@@ -187,10 +187,24 @@
     transition:background .15s ease, transform .15s ease;
   }
   .close-btn:hover{ background:rgba(255,255,255,.18); transform:scale(1.06); }
+  /* 쿠션(패널)과 그 아래 음량 슬라이더를 함께 세로로 쌓아서 가운데 정렬 */
+  .viewer-stack{ display:flex; flex-direction:column; align-items:center; gap:14px; }
   .viewer-panel{
     position:relative;
-    width:min(420px, 88vw); background:linear-gradient(180deg, #191F3D, #12162E); border-radius:20px;
-    padding:24px; box-shadow:0 30px 80px rgba(0,0,0,.55), 0 0 0 1px rgba(217,178,108,.2); text-align:center;
+    width:min(420px, 88vw);
+    background:
+      radial-gradient(120% 85% at 30% 18%, rgba(255,255,255,.14), transparent 55%),
+      linear-gradient(165deg, #232a52, #14172c);
+    border-radius:42px;
+    padding:28px 24px 24px;
+    box-shadow:
+      0 30px 80px rgba(0,0,0,.55),
+      0 0 0 1px rgba(217,178,108,.2),
+      inset 0 3px 6px rgba(255,255,255,.16),
+      inset 0 -18px 30px rgba(0,0,0,.45),
+      inset 16px 0 26px rgba(0,0,0,.22),
+      inset -16px 0 26px rgba(0,0,0,.22);
+    text-align:center;
     animation:panelAppear .3s ease-out backwards;
   }
   @keyframes panelAppear{
@@ -202,11 +216,17 @@
      두 요소가 같은 타임라인에서 갱신되므로 타이밍이 항상 정확히 맞습니다. */
   .viewer-canvas{ width:100%; height:min(320px, 60vw); touch-action:none; cursor:grab; }
   .viewer-canvas:active{ cursor:grabbing; }
-  .viewer-caption{ margin-top:12px; }
-  .viewer-name{ font-weight:700; font-size:16px; margin:0 0 6px; color:#F5F3EC; }
-  .viewer-desc{ font-weight:300; font-size:12.5px; color:#C9C3DA; margin:0 0 10px; line-height:1.5; }
-  .viewer-volume{ margin-top:10px; display:flex; align-items:center; justify-content:center; gap:7px; }
-  .viewer-volume-icon{ font-size:11px; opacity:.6; }
+  /* 뱃지 설명: 금색 명찰에 새겨진 느낌 */
+  .viewer-caption{
+    margin-top:16px; border-radius:11px; padding:13px 18px;
+    background:linear-gradient(165deg, #F6E7B8, #D9B26C 55%, #B8933F);
+    box-shadow:0 5px 12px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.65), inset 0 -3px 5px rgba(0,0,0,.25);
+    border:1px solid rgba(120,90,30,.5);
+  }
+  .viewer-name{ font-weight:700; font-size:16px; margin:0 0 5px; color:#3B2B10; text-shadow:0 1px 0 rgba(255,255,255,.4); }
+  .viewer-desc{ font-weight:500; font-size:12.5px; color:#4A3716; margin:0; line-height:1.5; }
+  .viewer-volume{ display:flex; align-items:center; justify-content:center; gap:7px; }
+  .viewer-volume-icon{ font-size:11px; opacity:.75; color:#F5F3EC; }
   .viewer-volume-slider{
     -webkit-appearance:none; appearance:none;
     width:84px; height:3px; border-radius:999px;
@@ -260,12 +280,14 @@
 
   <!-- 3D 뷰어 오버레이 -->
   <div class="viewer-overlay" id="viewerOverlay">
-    <div class="viewer-panel">
-      <button class="close-btn" id="closeViewerBtn" aria-label="닫기">✕</button>
-      <div class="viewer-canvas" id="viewerCanvas"></div>
-      <div class="viewer-caption">
-        <p class="viewer-name" id="viewerName"></p>
-        <p class="viewer-desc" id="viewerDesc"></p>
+    <div class="viewer-stack">
+      <div class="viewer-panel">
+        <button class="close-btn" id="closeViewerBtn" aria-label="닫기">✕</button>
+        <div class="viewer-canvas" id="viewerCanvas"></div>
+        <div class="viewer-caption">
+          <p class="viewer-name" id="viewerName"></p>
+          <p class="viewer-desc" id="viewerDesc"></p>
+        </div>
       </div>
       <div class="viewer-volume">
         <span class="viewer-volume-icon" aria-hidden="true">🔈</span>
