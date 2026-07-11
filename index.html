@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>나의 뱃지 도감</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Noto+Serif+KR:wght@500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
@@ -339,7 +339,7 @@
       유저에게 뱃지를 주고 싶으면 여기에 id만 추가하면 됩니다.
 ------------------------------------------------------------------- */
 const BADGE_CATALOG = {
-  b5: {
+  b1: {
     name:"새싹 뱃지",
     desc:"천리길도 한걸음부터, 스터디에 처음 참여하면 얻을 수 있는 뱃지입니다.",
     colors:["#D9B26C","#F4E3B2"],
@@ -350,7 +350,7 @@ const BADGE_CATALOG = {
     modelUrl:"assets/models/001-starter.glb",
     sound:"assets/sounds/001-starter.mp3"
   },
-  b6: {
+  b2: {
     name:"겨울오로라 뱃지",
     desc:"2025 겨울방학 스터디를 진행하여 얻은 뱃지입니다.",
     type:"special",
@@ -362,7 +362,7 @@ const BADGE_CATALOG = {
     modelUrl:"assets/models/002-winterstd.glb",
     sound:"assets/sounds/002-winterstd.mp3"
   },
-  b7: {
+  b3: {
     name:"ASTERISK",
     desc:"2026 디자인 X를 성공적으로 마무리하여 얻은 뱃지입니다.",
     type:"special",
@@ -377,7 +377,7 @@ const BADGE_CATALOG = {
 };
 
 const REGISTERED_USERS = {
-  "김민준": ["b5", "b6", "b7"],
+  "김민준": ["b1", "b2", "b3"],
   "이서연": [],
   "박도윤": []
 };
@@ -705,11 +705,15 @@ function mountThree(badge){
     }
   }
 
+  // 뷰어가 로드 완료 전에 닫히면 이후 콜백에서 이미 정리된 씬에 손대지 않도록 막는 플래그
+  let disposed = false;
+
   if(badge.modelUrl){
     const loader = new THREE.GLTFLoader();
     loader.load(
       badge.modelUrl,
       (gltf) => {
+        if(disposed) return;
         const modelRoot = gltf.scene;
         // 모델 크기가 제각각이어도 뷰어 안에 일정하게 들어오도록 정규화합니다.
         const box = new THREE.Box3().setFromObject(modelRoot);
@@ -720,6 +724,20 @@ function mountThree(badge){
         modelRoot.scale.setScalar(scale);
         modelRoot.position.sub(center.multiplyScalar(scale));
         pivot.add(modelRoot);
+
+        // 뷰어를 닫을 때 GPU 리소스가 남지 않도록 모델의 지오메트리/머티리얼/텍스처를 모두 등록
+        modelRoot.traverse((obj) => {
+          if(!obj.isMesh) return;
+          if(obj.geometry) disposables.push(obj.geometry);
+          const materials = Array.isArray(obj.material) ? obj.material : [obj.material];
+          materials.forEach((mat) => {
+            if(!mat) return;
+            disposables.push(mat);
+            Object.values(mat).forEach((value) => {
+              if(value && value.isTexture) disposables.push(value);
+            });
+          });
+        });
 
         // glb에 애니메이션 클립이 있으면 재생 준비만 해두고, 실제 재생은 뱃지 클릭 시 트리거합니다.
         if(gltf.animations && gltf.animations.length){
@@ -734,6 +752,7 @@ function mountThree(badge){
       },
       undefined,
       (err) => {
+        if(disposed) return;
         console.error('glb 모델 로드 실패, 자리표시자 도형으로 대체합니다.', err);
         buildPlaceholder();
       }
@@ -858,18 +877,14 @@ function mountThree(badge){
     const hits = raycaster.intersectObject(pivot, true);
     if(hits.length > 0){
       canClickBadge = false;
-      if(badge.sound){
-        const audio = playBadgeSound(badge.sound);
-        if(audio){
-          const release = () => { canClickBadge = true; };
-          audio.addEventListener('ended', release, { once:true });
-          audio.addEventListener('error', release, { once:true });
-          setTimeout(release, CLICK_COOLDOWN_SAFETY);
-        }else{
-          setTimeout(() => { canClickBadge = true; }, CLICK_COOLDOWN_FALLBACK);
-        }
+      const release = () => { canClickBadge = true; };
+      const audio = badge.sound ? playBadgeSound(badge.sound) : null;
+      if(audio){
+        audio.addEventListener('ended', release, { once:true });
+        audio.addEventListener('error', release, { once:true });
+        setTimeout(release, CLICK_COOLDOWN_SAFETY);
       }else{
-        setTimeout(() => { canClickBadge = true; }, CLICK_COOLDOWN_FALLBACK);
+        setTimeout(release, CLICK_COOLDOWN_FALLBACK);
       }
       clipActions.forEach((action) => { action.reset(); action.play(); });
       drop.vel += CLICK_BOUNCE_KICK; // 착지 스프링을 그대로 재활용해 "뽀용" 튕기게 함
@@ -916,6 +931,7 @@ function mountThree(badge){
   window.addEventListener('resize', onResize);
 
   threeCleanup = () => {
+    disposed = true;
     cancelAnimationFrame(raf);
     el.removeEventListener('pointerdown', onDown);
     window.removeEventListener('pointermove', onMove);
