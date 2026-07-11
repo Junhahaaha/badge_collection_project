@@ -126,6 +126,21 @@
     100%{ left:130%; opacity:0; }
   }
 
+  /* 특별 뱃지: 카드 주변에 은은하게 떠다니는 반짝이 파티클 */
+  .badge-particles{
+    position:absolute; inset:-14px; pointer-events:none; z-index:1;
+  }
+  .badge-particle{
+    position:absolute; border-radius:50%; opacity:0;
+    background:radial-gradient(circle, #FFFBEF 0%, var(--gold) 60%, transparent 100%);
+    box-shadow:0 0 6px 1px rgba(217,178,108,.75);
+    animation-name:particleTwinkle; animation-timing-function:ease-in-out; animation-iteration-count:infinite;
+  }
+  @keyframes particleTwinkle{
+    0%,100%{ opacity:0; transform:scale(.4); }
+    50%{ opacity:1; transform:scale(1); }
+  }
+
   .tooltip{
     position:absolute; bottom:100%; right:-10px; margin-bottom:10px;
     background:#0B0E1F; color:#FFFFFF; padding:12px 16px; border-radius:22px;
@@ -269,6 +284,9 @@
         modelUrl     : 실제 .glb 3D 모델 URL (없으면 도형 자리표시자)
         sound        : 3D 뷰어에서 뱃지를 클릭했을 때 재생할 효과음 URL (없으면 무음).
                        UI에는 노출되지 않는, 뱃지 정보에만 기록해두는 내부 데이터입니다.
+        type         : 뱃지 유형. "basic"(기본, 기본값) | "special"(특별).
+                       special 뱃지는 2D 카드와 3D 뷰어 모두에서 은은하게 반짝이는
+                       파티클 효과가 추가로 나타납니다. 필드를 생략하면 basic으로 처리됩니다.
 
    2) REGISTERED_USERS : 유저 이름 -> 보유한 뱃지 id 배열.
       뱃지 내용을 바꾸고 싶으면 BADGE_CATALOG만 수정하면 되고,
@@ -313,6 +331,18 @@ function getUserBadges(name){
 }
 
 const SHAPE_LABEL = { cylinder:"메", icosahedron:"보", octahedron:"각", torus:"고" };
+
+// 특별(special) 뱃지 카드 주변에 흩뿌릴 파티클의 고정 배치(퍼센트 좌표는 .badge-particles 기준).
+const PARTICLE_LAYOUT = [
+  { top:'2%',  left:'10%', size:5, delay:'0s',   duration:'2.6s' },
+  { top:'14%', left:'92%', size:4, delay:'.4s',  duration:'2.2s' },
+  { top:'48%', left:'-4%', size:6, delay:'.9s',  duration:'2.8s' },
+  { top:'82%', left:'6%',  size:4, delay:'1.3s', duration:'2.3s' },
+  { top:'90%', left:'88%', size:5, delay:'.2s',  duration:'2.5s' },
+  { top:'60%', left:'98%', size:4, delay:'1.7s', duration:'2.1s' },
+  { top:'-2%', left:'55%', size:5, delay:'1s',   duration:'2.7s' },
+  { top:'96%', left:'46%', size:4, delay:'.6s',  duration:'2.4s' }
+];
 
 /* ---------------- 화면 전환 ---------------- */
 const loginScreen = document.getElementById('loginScreen');
@@ -396,6 +426,21 @@ function renderBadgeCell(badge, index){
   }
   cell.appendChild(medal);
 
+  if(badge.type === 'special'){
+    const particles = document.createElement('div');
+    particles.className = 'badge-particles';
+    PARTICLE_LAYOUT.forEach((p) => {
+      const dot = document.createElement('span');
+      dot.className = 'badge-particle';
+      dot.style.top = p.top; dot.style.left = p.left;
+      dot.style.width = dot.style.height = p.size + 'px';
+      dot.style.animationDelay = p.delay;
+      dot.style.animationDuration = p.duration;
+      particles.appendChild(dot);
+    });
+    cell.appendChild(particles);
+  }
+
   const tooltip = document.createElement('div');
   tooltip.className = 'tooltip';
   tooltip.innerHTML = `
@@ -473,6 +518,24 @@ function closeViewer(){
 }
 closeViewerBtn.addEventListener('click', closeViewer);
 
+// 특별(special) 뱃지의 3D 파티클용 은은한 광점 텍스처. 뷰어를 열 때마다 새로 만들지 않고 재사용합니다.
+let sparkleTexture = null;
+function getSparkleTexture(){
+  if(sparkleTexture) return sparkleTexture;
+  const size = 64;
+  const canvas = document.createElement('canvas');
+  canvas.width = size; canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const gradient = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
+  gradient.addColorStop(0, 'rgba(255,255,255,1)');
+  gradient.addColorStop(0.4, 'rgba(255,240,200,.9)');
+  gradient.addColorStop(1, 'rgba(255,240,200,0)');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, size, size);
+  sparkleTexture = new THREE.CanvasTexture(canvas);
+  return sparkleTexture;
+}
+
 function mountThree(badge){
   const mount = viewerCanvasHost;
   const width = mount.clientWidth || 320;
@@ -505,6 +568,37 @@ function mountThree(badge){
   const disposables = [];
   let mixer = null;
   let clipActions = [];
+
+  // 특별(special) 뱃지 주변을 은은하게 떠다니는 반짝이 파티클 (공유 텍스처를 사용하므로 dispose 대상에서 제외)
+  const sparkleGroup = new THREE.Group();
+  scene.add(sparkleGroup);
+  const sparkles = [];
+  if(badge.type === 'special'){
+    const texture = getSparkleTexture();
+    const SPARKLE_COUNT = 14;
+    for(let i = 0; i < SPARKLE_COUNT; i++){
+      const material = new THREE.SpriteMaterial({
+        map: texture, transparent:true, depthWrite:false, blending:THREE.AdditiveBlending
+      });
+      const sprite = new THREE.Sprite(material);
+      const radius = 1.5 + Math.random() * 0.7;
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos((Math.random() * 2) - 1);
+      sprite.position.set(
+        radius * Math.sin(phi) * Math.cos(theta),
+        radius * Math.cos(phi) * 0.7,
+        radius * Math.sin(phi) * Math.sin(theta)
+      );
+      const baseScale = 0.09 + Math.random() * 0.1;
+      sprite.userData.baseScale = baseScale;
+      sprite.userData.phase = Math.random() * Math.PI * 2;
+      sprite.userData.speed = 1.2 + Math.random() * 1.2;
+      sprite.scale.setScalar(baseScale);
+      sparkleGroup.add(sprite);
+      sparkles.push(sprite);
+      disposables.push(material);
+    }
+  }
 
   function buildPlaceholder(){
     let geometry;
@@ -650,6 +744,16 @@ function mountThree(badge){
       drop.started = true;
     }
     if(mixer) mixer.update(frameDt);
+
+    if(sparkles.length){
+      const t = now * 0.001;
+      sparkleGroup.rotation.y += frameDt * 0.15;
+      sparkles.forEach((sprite) => {
+        const tw = 0.5 + 0.5 * Math.sin(t * sprite.userData.speed + sprite.userData.phase);
+        sprite.material.opacity = 0.25 + tw * 0.75;
+        sprite.scale.setScalar(sprite.userData.baseScale * (0.7 + tw * 0.5));
+      });
+    }
 
     renderer.render(scene, camera);
     raf = requestAnimationFrame(render);
